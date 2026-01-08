@@ -178,7 +178,7 @@ onUnmounted(() => {
           :total-points="buffer.totalPoints.value"
           :get-chart-data="() => buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :get-chart-data-in-range="(start: number, end: number) => buffer.getChartDataInRange(start, end, parser.channelCount.value, channelConfig.getCoefficients())"
-          :get-selection-stats="(start: number, end: number) => buffer.getSelectionStats(start, end, parser.channelCount.value)"
+          :get-selection-stats="(start: number, end: number) => buffer.getSelectionStats(start, end, parser.channelCount.value, channelConfig.getCoefficients())"
         />
       </div>
     </div>

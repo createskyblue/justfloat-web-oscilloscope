@@ -229,8 +229,8 @@ export function useDataBuffer(initialSize: number = 10000) {
     }
   }
 
-  // 获取选区统计（仅在需要时计算选区数据）
-  const getSelectionStats = (startIndex: number, endIndex: number, channelCount: number) => {
+  // 获取选区统计（仅在需要时计算选区数据，应用系数）
+  const getSelectionStats = (startIndex: number, endIndex: number, channelCount: number, coefficients: number[] = []) => {
     const frames = ringBuffer.getRange(startIndex, endIndex)
     if (frames.length < 2) return null
 
@@ -243,6 +243,7 @@ export function useDataBuffer(initialSize: number = 10000) {
       let max = -Infinity
       let sum = 0
       let count = 0
+      const coef = coefficients[ch] ?? 1
 
       for (const frame of frames) {
         if (ch < frame.values.length) {
@@ -258,9 +259,9 @@ export function useDataBuffer(initialSize: number = 10000) {
 
       channels.push({
         id: ch,
-        min: count > 0 ? min : 0,
-        max: count > 0 ? max : 0,
-        avg: count > 0 ? sum / count : 0
+        min: (count > 0 ? min : 0) * coef,
+        max: (count > 0 ? max : 0) * coef,
+        avg: (count > 0 ? sum / count : 0) * coef
       })
     }
 
