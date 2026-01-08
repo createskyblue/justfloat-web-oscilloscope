@@ -160,19 +160,19 @@ const selectColor = (color: string) => {
       <div class="grid grid-cols-4 gap-1 text-xs">
         <div class="text-center">
           <div class="text-gray-500">最小</div>
-          <div class="text-green-400 font-mono tabular-nums">{{ formatNumber(stats.min) }}</div>
+          <div class="text-green-400 font-mono tabular-nums">{{ formatNumber(stats.min, 3) }}</div>
         </div>
         <div class="text-center">
           <div class="text-gray-500">最大</div>
-          <div class="text-red-400 font-mono tabular-nums">{{ formatNumber(stats.max) }}</div>
+          <div class="text-red-400 font-mono tabular-nums">{{ formatNumber(stats.max, 3) }}</div>
         </div>
         <div class="text-center">
           <div class="text-gray-500">平均</div>
-          <div class="text-blue-400 font-mono tabular-nums">{{ formatNumber(stats.avg) }}</div>
+          <div class="text-blue-400 font-mono tabular-nums">{{ formatNumber(stats.avg, 3) }}</div>
         </div>
         <div class="text-center">
           <div class="text-gray-500">峰峰</div>
-          <div class="text-purple-400 font-mono tabular-nums">{{ formatNumber(peakToPeak) }}</div>
+          <div class="text-purple-400 font-mono tabular-nums">{{ formatNumber(peakToPeak, 3) }}</div>
         </div>
       </div>
     </div>
