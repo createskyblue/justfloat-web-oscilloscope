@@ -257,56 +257,6 @@ export function useDataBuffer(initialSize: number = 10000) {
     }
   }
 
-  // LTTB 降采样算法（保持波形特征）
-  const downsampleLTTB = (data: number[], threshold: number): number[] => {
-    if (data.length <= threshold) return data
-
-    const result: number[] = []
-    const bucketSize = (data.length - 2) / (threshold - 2)
-
-    result.push(data[0]) // 保留第一个点
-
-    let a = 0 // 上一个选中的点
-    for (let i = 0; i < threshold - 2; i++) {
-      // 计算当前桶的范围
-      const bucketStart = Math.floor((i + 1) * bucketSize) + 1
-      const bucketEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1, data.length - 1)
-
-      // 计算下一个桶的平均值
-      const nextBucketStart = Math.floor((i + 2) * bucketSize) + 1
-      const nextBucketEnd = Math.min(Math.floor((i + 3) * bucketSize) + 1, data.length - 1)
-      let avgX = 0, avgY = 0, count = 0
-      for (let j = nextBucketStart; j < nextBucketEnd && j < data.length; j++) {
-        avgX += j
-        avgY += data[j]
-        count++
-      }
-      if (count > 0) {
-        avgX /= count
-        avgY /= count
-      }
-
-      // 在当前桶中找到与上一个点和平均点形成最大三角形面积的点
-      let maxArea = -1
-      let maxAreaIndex = bucketStart
-      const pointAX = a
-      const pointAY = data[a]
-
-      for (let j = bucketStart; j < bucketEnd && j < data.length; j++) {
-        const area = Math.abs((pointAX - avgX) * (data[j] - pointAY) - (pointAX - j) * (avgY - pointAY))
-        if (area > maxArea) {
-          maxArea = area
-          maxAreaIndex = j
-        }
-      }
-
-      result.push(data[maxAreaIndex])
-      a = maxAreaIndex
-    }
-
-    result.push(data[data.length - 1]) // 保留最后一个点
-    return result
-  }
 
   // 获取用于图表的数据（带智能降采样）
   const getChartData = (channelCount: number, coefficients: number[] = []) => {
