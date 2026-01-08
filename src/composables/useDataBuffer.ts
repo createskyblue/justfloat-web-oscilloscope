@@ -89,9 +89,8 @@ export function useDataBuffer(initialSize: number = 10000) {
   const data = shallowRef<DataFrame[]>([])
   const sampleRate = ref(0)
 
-  // 缓存的统计数据（定期更新）
-  let cachedStats: Map<number, ChannelStats> = new Map()
-  let lastStatsUpdate = 0
+  // 缓存的统计数据（每个通道独立缓存时间）
+  let cachedStats: Map<number, { stats: ChannelStats; timestamp: number }> = new Map()
   const STATS_UPDATE_INTERVAL = 100 // 每100ms更新一次统计
 
   // 用于计算采样率的变量
@@ -169,16 +168,15 @@ export function useDataBuffer(initialSize: number = 10000) {
     const totalSize = ringBuffer.size
     if (totalSize === 0) return null
 
-    // 使用缓存，避免频繁计算
-    const cacheKey = channelIndex
-    if (now - lastStatsUpdate < STATS_UPDATE_INTERVAL && cachedStats.has(cacheKey)) {
-      const cached = cachedStats.get(cacheKey)!
+    // 使用缓存，避免频繁计算（每个通道独立判断）
+    const cached = cachedStats.get(channelIndex)
+    if (cached && (now - cached.timestamp) < STATS_UPDATE_INTERVAL) {
       // 应用系数到缓存值
       return {
-        min: cached.min * coefficient,
-        max: cached.max * coefficient,
-        avg: cached.avg * coefficient,
-        current: cached.current * coefficient
+        min: cached.stats.min * coefficient,
+        max: cached.stats.max * coefficient,
+        avg: cached.stats.avg * coefficient,
+        current: cached.stats.current * coefficient
       }
     }
 
@@ -214,14 +212,13 @@ export function useDataBuffer(initialSize: number = 10000) {
     if (count === 0) return null
 
     // 缓存原始值（不含系数）
-    const rawStats = {
+    const rawStats: ChannelStats = {
       min: min,
       max: max,
       avg: sum / count,
       current: current
     }
-    cachedStats.set(cacheKey, rawStats)
-    lastStatsUpdate = now
+    cachedStats.set(channelIndex, { stats: rawStats, timestamp: now })
 
     // 返回应用系数后的值
     return {

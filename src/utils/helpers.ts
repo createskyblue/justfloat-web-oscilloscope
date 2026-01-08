@@ -1,7 +1,7 @@
 /**
  * 格式化数字，保留指定小数位
  */
-export function formatNumber(value: number, decimals: number = 2): string {
+export function formatNumber(value: number, decimals: number = 6): string {
   if (!isFinite(value)) return '-'
   return value.toFixed(decimals)
 }

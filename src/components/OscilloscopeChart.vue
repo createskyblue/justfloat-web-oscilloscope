@@ -449,15 +449,15 @@ defineExpose({
           <div class="grid grid-cols-3 gap-2 text-xs">
             <div>
               <div class="text-gray-600">最小</div>
-              <div class="text-green-400 font-mono">{{ formatNumber(ch.min, 2) }}</div>
+              <div class="text-green-400 font-mono">{{ formatNumber(ch.min) }}</div>
             </div>
             <div>
               <div class="text-gray-600">最大</div>
-              <div class="text-red-400 font-mono">{{ formatNumber(ch.max, 2) }}</div>
+              <div class="text-red-400 font-mono">{{ formatNumber(ch.max) }}</div>
             </div>
             <div>
               <div class="text-gray-600">平均</div>
-              <div class="text-blue-400 font-mono">{{ formatNumber(ch.avg, 2) }}</div>
+              <div class="text-blue-400 font-mono">{{ formatNumber(ch.avg) }}</div>
             </div>
           </div>
         </div>

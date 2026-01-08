@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { ChannelConfig, ChannelStats } from '@/types'
 import { CHANNEL_COLORS } from '@/types'
 import { formatNumber } from '@/utils/helpers'
@@ -16,6 +16,49 @@ const emit = defineEmits<{
 
 const isExpanded = ref(false)
 const showColorPicker = ref(false)
+
+// 本地编辑状态（防止输入时被外部更新覆盖）
+const localName = ref(props.channel.name)
+const localUnit = ref(props.channel.unit)
+const localCoefficient = ref(props.channel.coefficient)
+const isEditingName = ref(false)
+const isEditingUnit = ref(false)
+const isEditingCoefficient = ref(false)
+
+// 当channel变化且不在编辑状态时，同步本地值
+watch(() => props.channel.name, (newVal) => {
+  if (!isEditingName.value) localName.value = newVal
+})
+watch(() => props.channel.unit, (newVal) => {
+  if (!isEditingUnit.value) localUnit.value = newVal
+})
+watch(() => props.channel.coefficient, (newVal) => {
+  if (!isEditingCoefficient.value) localCoefficient.value = newVal
+})
+
+// 提交编辑
+const submitName = () => {
+  isEditingName.value = false
+  const value = localName.value || `通道 ${props.channel.id + 1}`
+  if (value !== props.channel.name) {
+    emit('update', { name: value })
+  }
+}
+
+const submitUnit = () => {
+  isEditingUnit.value = false
+  if (localUnit.value !== props.channel.unit) {
+    emit('update', { unit: localUnit.value })
+  }
+}
+
+const submitCoefficient = () => {
+  isEditingCoefficient.value = false
+  const value = localCoefficient.value || 1
+  if (value !== props.channel.coefficient) {
+    emit('update', { coefficient: value })
+  }
+}
 
 // 峰峰值计算
 const peakToPeak = computed(() => {
@@ -117,19 +160,19 @@ const selectColor = (color: string) => {
       <div class="grid grid-cols-4 gap-1 text-xs">
         <div class="text-center">
           <div class="text-gray-500">最小</div>
-          <div class="text-green-400 font-mono tabular-nums">{{ formatNumber(stats.min, 2) }}</div>
+          <div class="text-green-400 font-mono tabular-nums">{{ formatNumber(stats.min) }}</div>
         </div>
         <div class="text-center">
           <div class="text-gray-500">最大</div>
-          <div class="text-red-400 font-mono tabular-nums">{{ formatNumber(stats.max, 2) }}</div>
+          <div class="text-red-400 font-mono tabular-nums">{{ formatNumber(stats.max) }}</div>
         </div>
         <div class="text-center">
           <div class="text-gray-500">平均</div>
-          <div class="text-blue-400 font-mono tabular-nums">{{ formatNumber(stats.avg, 2) }}</div>
+          <div class="text-blue-400 font-mono tabular-nums">{{ formatNumber(stats.avg) }}</div>
         </div>
         <div class="text-center">
           <div class="text-gray-500">峰峰</div>
-          <div class="text-purple-400 font-mono tabular-nums">{{ formatNumber(peakToPeak, 2) }}</div>
+          <div class="text-purple-400 font-mono tabular-nums">{{ formatNumber(peakToPeak) }}</div>
         </div>
       </div>
     </div>
@@ -141,10 +184,12 @@ const selectColor = (color: string) => {
         <label class="block text-xs text-gray-500 mb-1">通道名称</label>
         <input
           type="text"
-          :value="channel.name"
+          v-model="localName"
           class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
           placeholder="输入通道名称"
-          @change="emit('update', { name: ($event.target as HTMLInputElement).value || `通道 ${channel.id + 1}` })"
+          @focus="isEditingName = true"
+          @blur="submitName"
+          @keyup.enter="($event.target as HTMLInputElement).blur()"
         />
       </div>
 
@@ -154,21 +199,25 @@ const selectColor = (color: string) => {
           <label class="block text-xs text-gray-500 mb-1">单位</label>
           <input
             type="text"
-            :value="channel.unit"
+            v-model="localUnit"
             placeholder="V, A, °C..."
             class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-            @change="emit('update', { unit: ($event.target as HTMLInputElement).value })"
+            @focus="isEditingUnit = true"
+            @blur="submitUnit"
+            @keyup.enter="($event.target as HTMLInputElement).blur()"
           />
         </div>
         <div>
           <label class="block text-xs text-gray-500 mb-1">系数</label>
           <input
             type="number"
-            :value="channel.coefficient"
-            step="0.001"
+            v-model.number="localCoefficient"
+            step="0.000001"
             placeholder="1.0"
             class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-            @change="emit('update', { coefficient: Number(($event.target as HTMLInputElement).value) || 1 })"
+            @focus="isEditingCoefficient = true"
+            @blur="submitCoefficient"
+            @keyup.enter="($event.target as HTMLInputElement).blur()"
           />
         </div>
       </div>
@@ -179,23 +228,23 @@ const selectColor = (color: string) => {
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div class="flex justify-between">
             <span class="text-gray-500">最小值:</span>
-            <span class="text-green-400 font-mono tabular-nums">{{ formatNumber(stats.min, 4) }}</span>
+            <span class="text-green-400 font-mono tabular-nums">{{ formatNumber(stats.min) }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500">最大值:</span>
-            <span class="text-red-400 font-mono tabular-nums">{{ formatNumber(stats.max, 4) }}</span>
+            <span class="text-red-400 font-mono tabular-nums">{{ formatNumber(stats.max) }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500">平均值:</span>
-            <span class="text-blue-400 font-mono tabular-nums">{{ formatNumber(stats.avg, 4) }}</span>
+            <span class="text-blue-400 font-mono tabular-nums">{{ formatNumber(stats.avg) }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500">当前值:</span>
-            <span class="text-white font-mono tabular-nums">{{ formatNumber(stats.current, 4) }}</span>
+            <span class="text-white font-mono tabular-nums">{{ formatNumber(stats.current) }}</span>
           </div>
           <div class="flex justify-between col-span-2 pt-1 border-t border-gray-700 mt-1">
             <span class="text-gray-500">峰峰值:</span>
-            <span class="text-purple-400 font-mono tabular-nums">{{ formatNumber(peakToPeak, 4) }}</span>
+            <span class="text-purple-400 font-mono tabular-nums">{{ formatNumber(peakToPeak) }}</span>
           </div>
         </div>
       </div>
