@@ -80,50 +80,19 @@ class RingBuffer {
   }
 }
 
-// 增量统计计算器（避免每次遍历所有数据）
-class IncrementalStats {
-  private channelStats: Map<number, { min: number; max: number; sum: number; count: number; current: number }> = new Map()
-
-  update(channelIndex: number, value: number) {
-    let stats = this.channelStats.get(channelIndex)
-    if (!stats) {
-      stats = { min: Infinity, max: -Infinity, sum: 0, count: 0, current: 0 }
-      this.channelStats.set(channelIndex, stats)
-    }
-    if (isFinite(value)) {
-      stats.min = Math.min(stats.min, value)
-      stats.max = Math.max(stats.max, value)
-      stats.sum += value
-      stats.count++
-      stats.current = value
-    }
-  }
-
-  get(channelIndex: number): ChannelStats | null {
-    const stats = this.channelStats.get(channelIndex)
-    if (!stats || stats.count === 0) return null
-    return {
-      min: stats.min,
-      max: stats.max,
-      avg: stats.sum / stats.count,
-      current: stats.current
-    }
-  }
-
-  clear() {
-    this.channelStats.clear()
-  }
-}
-
 export function useDataBuffer(initialSize: number = 10000) {
   const bufferSize = ref(Math.max(MIN_BUFFER_SIZE, Math.min(MAX_BUFFER_SIZE, initialSize)))
   const ringBuffer = new RingBuffer(bufferSize.value)
-  const incrementalStats = new IncrementalStats()
 
   // 用于触发响应式更新的版本号
   const dataVersion = ref(0)
   const data = shallowRef<DataFrame[]>([])
   const sampleRate = ref(0)
+
+  // 缓存的统计数据（定期更新）
+  let cachedStats: Map<number, ChannelStats> = new Map()
+  let lastStatsUpdate = 0
+  const STATS_UPDATE_INTERVAL = 100 // 每100ms更新一次统计
 
   // 用于计算采样率的变量
   let lastTimestamp = 0
@@ -167,12 +136,6 @@ export function useDataBuffer(initialSize: number = 10000) {
     lastTimestamp = now
 
     ringBuffer.push(frame)
-
-    // 更新增量统计
-    for (let i = 0; i < values.length; i++) {
-      incrementalStats.update(i, values[i])
-    }
-
     scheduleUpdate()
   }
 
@@ -197,19 +160,76 @@ export function useDataBuffer(initialSize: number = 10000) {
 
     ringBuffer.pushBatch(newFrames)
 
-    // 更新增量统计
-    for (const frame of newFrames) {
-      for (let i = 0; i < frame.values.length; i++) {
-        incrementalStats.update(i, frame.values[i])
-      }
-    }
-
     scheduleUpdate()
   }
 
-  // 计算通道统计数据（使用增量统计，O(1)复杂度）
-  const getChannelStats = (channelIndex: number): ChannelStats | null => {
-    return incrementalStats.get(channelIndex)
+  // 计算通道统计数据（当前缓冲区窗口内的值，应用系数）
+  const getChannelStats = (channelIndex: number, coefficient: number = 1): ChannelStats | null => {
+    const now = performance.now()
+    const totalSize = ringBuffer.size
+    if (totalSize === 0) return null
+
+    // 使用缓存，避免频繁计算
+    const cacheKey = channelIndex
+    if (now - lastStatsUpdate < STATS_UPDATE_INTERVAL && cachedStats.has(cacheKey)) {
+      const cached = cachedStats.get(cacheKey)!
+      // 应用系数到缓存值
+      return {
+        min: cached.min * coefficient,
+        max: cached.max * coefficient,
+        avg: cached.avg * coefficient,
+        current: cached.current * coefficient
+      }
+    }
+
+    // 计算统计值（对大数据量使用采样）
+    let min = Infinity
+    let max = -Infinity
+    let sum = 0
+    let count = 0
+    let current = 0
+
+    // 对于大数据量，使用采样计算
+    const sampleStep = totalSize > 50000 ? Math.ceil(totalSize / 10000) : 1
+
+    for (let i = 0; i < totalSize; i += sampleStep) {
+      const frame = ringBuffer.get(i)
+      if (frame && channelIndex < frame.values.length) {
+        const value = frame.values[channelIndex]
+        if (isFinite(value)) {
+          min = Math.min(min, value)
+          max = Math.max(max, value)
+          sum += value
+          count++
+        }
+      }
+    }
+
+    // 获取当前值（最后一帧）
+    const lastFrame = ringBuffer.get(totalSize - 1)
+    if (lastFrame && channelIndex < lastFrame.values.length) {
+      current = lastFrame.values[channelIndex]
+    }
+
+    if (count === 0) return null
+
+    // 缓存原始值（不含系数）
+    const rawStats = {
+      min: min,
+      max: max,
+      avg: sum / count,
+      current: current
+    }
+    cachedStats.set(cacheKey, rawStats)
+    lastStatsUpdate = now
+
+    // 返回应用系数后的值
+    return {
+      min: rawStats.min * coefficient,
+      max: rawStats.max * coefficient,
+      avg: rawStats.avg * coefficient,
+      current: rawStats.current * coefficient
+    }
   }
 
   // 获取选区统计（仅在需要时计算选区数据）
@@ -390,7 +410,8 @@ export function useDataBuffer(initialSize: number = 10000) {
   // 清空数据
   const clear = () => {
     ringBuffer.clear()
-    incrementalStats.clear()
+    cachedStats.clear()
+    lastStatsUpdate = 0
     data.value = []
     dataVersion.value++
     sampleRate.value = 0
@@ -413,9 +434,6 @@ export function useDataBuffer(initialSize: number = 10000) {
     const toImport = frames.slice(-bufferSize.value)
     for (const frame of toImport) {
       ringBuffer.push(frame)
-      for (let i = 0; i < frame.values.length; i++) {
-        incrementalStats.update(i, frame.values[i])
-      }
     }
     dataVersion.value++
   }

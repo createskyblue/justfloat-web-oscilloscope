@@ -162,7 +162,7 @@ onUnmounted(() => {
         v-model:buffer-size="bufferSize"
         :channels="channelConfig.channels.value"
         :channel-count="parser.channelCount.value"
-        :get-channel-stats="buffer.getChannelStats"
+        :get-channel-stats="(id: number) => buffer.getChannelStats(id, channelConfig.channels.value[id]?.coefficient ?? 1)"
         @update-channel="channelConfig.updateChannel"
         @toggle-visibility="channelConfig.toggleVisibility"
       />
