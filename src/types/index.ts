@@ -1,6 +1,15 @@
 // 连接状态
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 
+// 协议类型
+export type ProtocolType = 'justfloat' | 'firewater'
+
+// 协议配置
+export const PROTOCOL_OPTIONS = [
+  { value: 'justfloat' as ProtocolType, label: 'JustFloat', description: '二进制同步字协议' },
+  { value: 'firewater' as ProtocolType, label: 'FireWater', description: '文本行协议 (ch0,ch1,...\\n)' }
+] as const
+
 // 通道颜色预设
 export const CHANNEL_COLORS = [
   '#2196F3', // 蓝色
@@ -36,6 +45,7 @@ export interface AppConfig {
   baudRate: number
   bufferSize: number
   channels: ChannelConfig[]
+  protocol: ProtocolType
 }
 
 // 数据帧
@@ -71,7 +81,8 @@ export interface SelectionStats {
 export const DEFAULT_CONFIG: AppConfig = {
   baudRate: 115200,
   bufferSize: 10000,
-  channels: []
+  channels: [],
+  protocol: 'justfloat'
 }
 
 // 默认波特率选项

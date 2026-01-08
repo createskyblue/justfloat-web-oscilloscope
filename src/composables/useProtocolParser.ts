@@ -1,34 +1,40 @@
 import { ref } from 'vue'
 import { SYNC_BYTES } from '@/types'
+import type { ProtocolType } from '@/types'
 
-// 解析状态
-enum ParseState {
-  LOOKING_FOR_FIRST_SYNC,  // 寻找第一个同步字
-  LOOKING_FOR_SECOND_SYNC, // 寻找第二个同步字
+// JustFloat 解析状态
+enum JustFloatState {
+  LOOKING_FOR_FIRST_SYNC,
+  LOOKING_FOR_SECOND_SYNC,
 }
 
 export function useProtocolParser() {
   const channelCount = ref(0)
   const frameCount = ref(0)
+  const currentProtocol = ref<ProtocolType>('justfloat')
 
-  // 内部状态
-  let buffer: number[] = []
-  let state = ParseState.LOOKING_FOR_FIRST_SYNC
+  // JustFloat 内部状态
+  let justfloatBuffer: number[] = []
+  let justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
   let firstSyncIndex = -1
+
+  // FireWater 内部状态
+  let firewaterBuffer = ''
+  const textDecoder = new TextDecoder()
 
   let onFrameCallback: ((values: number[]) => void) | null = null
 
-  // 检查缓冲区末尾是否匹配同步字
+  // ==================== JustFloat 协议解析 ====================
+
   const checkSyncBytes = (): boolean => {
-    if (buffer.length < 4) return false
-    const start = buffer.length - 4
-    return buffer[start] === SYNC_BYTES[0] &&
-           buffer[start + 1] === SYNC_BYTES[1] &&
-           buffer[start + 2] === SYNC_BYTES[2] &&
-           buffer[start + 3] === SYNC_BYTES[3]
+    if (justfloatBuffer.length < 4) return false
+    const start = justfloatBuffer.length - 4
+    return justfloatBuffer[start] === SYNC_BYTES[0] &&
+           justfloatBuffer[start + 1] === SYNC_BYTES[1] &&
+           justfloatBuffer[start + 2] === SYNC_BYTES[2] &&
+           justfloatBuffer[start + 3] === SYNC_BYTES[3]
   }
 
-  // 解析 float 数组（Little Endian）
   const parseFloats = (data: number[]): number[] => {
     const floats: number[] = []
     const dataView = new DataView(new ArrayBuffer(4))
@@ -38,45 +44,41 @@ export function useProtocolParser() {
       dataView.setUint8(1, data[i + 1])
       dataView.setUint8(2, data[i + 2])
       dataView.setUint8(3, data[i + 3])
-      floats.push(dataView.getFloat32(0, true)) // true = little endian
+      floats.push(dataView.getFloat32(0, true))
     }
 
     return floats
   }
 
-  // 处理接收到的数据
-  const processData = (data: Uint8Array) => {
+  const processJustFloat = (data: Uint8Array) => {
     for (let i = 0; i < data.length; i++) {
-      buffer.push(data[i])
+      justfloatBuffer.push(data[i])
 
-      // 防止缓冲区过大
-      if (buffer.length > 100000) {
-        buffer = buffer.slice(-50000)
-        state = ParseState.LOOKING_FOR_FIRST_SYNC
+      if (justfloatBuffer.length > 100000) {
+        justfloatBuffer = justfloatBuffer.slice(-50000)
+        justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
         firstSyncIndex = -1
       }
 
-      switch (state) {
-        case ParseState.LOOKING_FOR_FIRST_SYNC:
+      switch (justfloatState) {
+        case JustFloatState.LOOKING_FOR_FIRST_SYNC:
           if (checkSyncBytes()) {
-            firstSyncIndex = buffer.length - 4
-            state = ParseState.LOOKING_FOR_SECOND_SYNC
+            firstSyncIndex = justfloatBuffer.length - 4
+            justfloatState = JustFloatState.LOOKING_FOR_SECOND_SYNC
           }
           break
 
-        case ParseState.LOOKING_FOR_SECOND_SYNC:
+        case JustFloatState.LOOKING_FOR_SECOND_SYNC:
           if (checkSyncBytes()) {
-            const secondSyncIndex = buffer.length - 4
+            const secondSyncIndex = justfloatBuffer.length - 4
             const payloadStart = firstSyncIndex + 4
             const payloadEnd = secondSyncIndex
             const payloadLength = payloadEnd - payloadStart
 
-            // 验证数据长度是否为4的倍数
             if (payloadLength > 0 && payloadLength % 4 === 0) {
-              const payload = buffer.slice(payloadStart, payloadEnd)
+              const payload = justfloatBuffer.slice(payloadStart, payloadEnd)
               const values = parseFloats(payload)
 
-              // 更新通道数
               if (values.length > 0) {
                 channelCount.value = values.length
                 frameCount.value++
@@ -87,40 +89,133 @@ export function useProtocolParser() {
               }
             }
 
-            // 移动指针到第二个同步字位置，继续解析
-            buffer = buffer.slice(secondSyncIndex)
-            firstSyncIndex = buffer.length - 4
-            // 保持在 LOOKING_FOR_SECOND_SYNC 状态
+            justfloatBuffer = justfloatBuffer.slice(secondSyncIndex)
+            firstSyncIndex = justfloatBuffer.length - 4
           }
           break
       }
     }
   }
 
-  // 注册帧回调
+  // ==================== FireWater 协议解析 ====================
+  // 格式: "<any>:ch0,ch1,ch2,...,chN\n" 或 "ch0,ch1,...,chN\n"
+
+  const processFireWater = (data: Uint8Array) => {
+    // 将新数据追加到缓冲区
+    firewaterBuffer += textDecoder.decode(data, { stream: true })
+
+    // 防止缓冲区过大
+    if (firewaterBuffer.length > 100000) {
+      firewaterBuffer = firewaterBuffer.slice(-50000)
+    }
+
+    // 查找并处理完整的行
+    let lineEnd: number
+    while ((lineEnd = findLineEnd(firewaterBuffer)) !== -1) {
+      const line = firewaterBuffer.substring(0, lineEnd).trim()
+      firewaterBuffer = firewaterBuffer.substring(lineEnd + 1)
+
+      // 跳过空行
+      if (!line) continue
+
+      // 解析行数据
+      const values = parseFireWaterLine(line)
+      if (values && values.length > 0) {
+        channelCount.value = values.length
+        frameCount.value++
+
+        if (onFrameCallback) {
+          onFrameCallback(values)
+        }
+      }
+    }
+  }
+
+  // 查找行结束位置（支持 \n, \r\n, \n\r）
+  const findLineEnd = (str: string): number => {
+    for (let i = 0; i < str.length; i++) {
+      if (str[i] === '\n' || str[i] === '\r') {
+        // 跳过可能的 \r\n 或 \n\r 组合
+        if (i + 1 < str.length && (str[i + 1] === '\n' || str[i + 1] === '\r') && str[i + 1] !== str[i]) {
+          return i + 1
+        }
+        return i
+      }
+    }
+    return -1
+  }
+
+  // 解析 FireWater 行格式
+  const parseFireWaterLine = (line: string): number[] | null => {
+    // 跳过 image 前缀
+    if (line.toLowerCase().startsWith('image')) {
+      return null
+    }
+
+    let dataStr = line
+
+    // 如果有冒号，取冒号后面的部分
+    const colonIndex = line.indexOf(':')
+    if (colonIndex !== -1) {
+      dataStr = line.substring(colonIndex + 1)
+    }
+
+    // 按逗号分割并解析数字
+    const parts = dataStr.split(',')
+    const values: number[] = []
+
+    for (const part of parts) {
+      const trimmed = part.trim()
+      if (trimmed === '') continue
+
+      const num = parseFloat(trimmed)
+      if (isFinite(num)) {
+        values.push(num)
+      } else {
+        // 如果解析失败，整行数据无效
+        return null
+      }
+    }
+
+    return values.length > 0 ? values : null
+  }
+
+  // ==================== 公共接口 ====================
+
+  const processData = (data: Uint8Array) => {
+    if (currentProtocol.value === 'justfloat') {
+      processJustFloat(data)
+    } else {
+      processFireWater(data)
+    }
+  }
+
   const onFrame = (callback: (values: number[]) => void) => {
     onFrameCallback = callback
   }
 
-  // 重置解析器状态（保留通道数配置）
-  const reset = () => {
-    buffer = []
-    state = ParseState.LOOKING_FOR_FIRST_SYNC
-    firstSyncIndex = -1
-    // 注意：不重置 channelCount 和 frameCount，以保持UI一致性
-    // 如果需要完全重置，使用 fullReset
+  const setProtocol = (protocol: ProtocolType) => {
+    if (currentProtocol.value !== protocol) {
+      currentProtocol.value = protocol
+      reset()
+    }
   }
 
-  // 完全重置（包括通道数和帧计数）
-  const fullReset = () => {
-    buffer = []
-    state = ParseState.LOOKING_FOR_FIRST_SYNC
+  const reset = () => {
+    // JustFloat 状态
+    justfloatBuffer = []
+    justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
     firstSyncIndex = -1
+    // FireWater 状态
+    firewaterBuffer = ''
+  }
+
+  const fullReset = () => {
+    reset()
     channelCount.value = 0
     frameCount.value = 0
   }
 
-  // 手动设置通道数（用于导入数据时）
   const setChannelCount = (count: number) => {
     channelCount.value = count
   }
@@ -128,8 +223,10 @@ export function useProtocolParser() {
   return {
     channelCount,
     frameCount,
+    currentProtocol,
     processData,
     onFrame,
+    setProtocol,
     reset,
     fullReset,
     setChannelCount

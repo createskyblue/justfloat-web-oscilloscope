@@ -1,19 +1,25 @@
 # JustFloat Web 示波器
 
-基于Web的示波器应用，用于实时显示和分析来自JustFloat协议设备的数据。通过Web Serial API与设备通信，解析数据并以图表形式实时展示。
+基于Web的示波器应用，用于实时显示和分析来自JustFloat协议和FireWater协议设备的数据。通过Web Serial API与设备通信，解析数据并以图表形式实时展示。
 
-![JustFloat Web Oscilloscope界面](./img/PixPin_2026-01-08_09-17-04.png)
+![JustFloat 数据解析](./img/PixPin_2026-01-08_09-17-04.png)
+![FireWater 数据解析](./img/PixPin_2026-01-09_03-31-39.png)
 
 ## 功能特性
 
 - 通过串口连接设备并接收数据
 - 解析JustFloat协议数据（协议格式：[float ch1, ..., float chN, 0x00, 0x00, 0x80, 0x7F]）
+- 解析FireWater协议数据（<any>:ch0,ch1,ch2,...,chN\n）
 - 实时绘制多通道波形图（最多支持8种颜色区分通道）
 - 支持数据导入/导出功能
 - 通道配置：可独立设置每个通道的名称、单位、系数和可见性
 - 实时显示通道统计数据（最小值、最大值、平均值）
 - 可配置的缓冲区大小（最小1000点）
 - 支持多种波特率（默认115200）
+
+## 协议介绍
+转去第三方软件Vofa+ 的协议引擎介绍页面：
+https://www.vofa.plus/docs/learning/dataengines/firewater
 
 ## 技术栈
 

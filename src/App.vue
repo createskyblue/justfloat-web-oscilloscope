@@ -9,7 +9,7 @@ import { useProtocolParser } from './composables/useProtocolParser'
 import { useDataBuffer } from './composables/useDataBuffer'
 import { useChannelConfig } from './composables/useChannelConfig'
 import { useStorage } from './composables/useStorage'
-import type { AppConfig, ExportData } from './types'
+import type { AppConfig, ExportData, ProtocolType } from './types'
 import { downloadJson, readJsonFile } from './utils/helpers'
 
 // 初始化存储
@@ -30,6 +30,10 @@ if (savedConfig.channels.length > 0) {
 // 配置状态
 const baudRate = ref(savedConfig.baudRate)
 const bufferSize = ref(savedConfig.bufferSize)
+const protocol = ref<ProtocolType>(savedConfig.protocol || 'justfloat')
+
+// 初始化协议
+parser.setProtocol(protocol.value)
 
 // 连接串口时的波特率
 const handleConnect = async () => {
@@ -60,14 +64,20 @@ watch(() => parser.channelCount.value, (count) => {
 })
 
 // 保存配置
-watch([baudRate, bufferSize, () => channelConfig.channels.value], () => {
+watch([baudRate, bufferSize, protocol, () => channelConfig.channels.value], () => {
   const config: AppConfig = {
     baudRate: baudRate.value,
     bufferSize: bufferSize.value,
+    protocol: protocol.value,
     channels: channelConfig.channels.value
   }
   saveConfig(config)
 }, { deep: true })
+
+// 协议变化时更新解析器
+watch(protocol, (newProtocol) => {
+  parser.setProtocol(newProtocol)
+})
 
 // 缓冲区大小变化
 watch(bufferSize, (size) => {
@@ -160,6 +170,7 @@ onUnmounted(() => {
       <SidePanel
         v-model:baud-rate="baudRate"
         v-model:buffer-size="bufferSize"
+        v-model:protocol="protocol"
         :channels="channelConfig.channels.value"
         :channel-count="parser.channelCount.value"
         :get-channel-stats="(id: number) => buffer.getChannelStats(id, channelConfig.channels.value[id]?.coefficient ?? 1)"

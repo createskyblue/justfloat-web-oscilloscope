@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ChannelConfig, ChannelStats } from '@/types'
-import { BAUD_RATES, MIN_BUFFER_SIZE, MAX_BUFFER_SIZE } from '@/types'
+import type { ChannelConfig, ChannelStats, ProtocolType } from '@/types'
+import { BAUD_RATES, MIN_BUFFER_SIZE, MAX_BUFFER_SIZE, PROTOCOL_OPTIONS } from '@/types'
 import ChannelItem from './ChannelItem.vue'
 
 const props = defineProps<{
   baudRate: number
   bufferSize: number
+  protocol: ProtocolType
   channels: ChannelConfig[]
   channelCount: number
   getChannelStats: (channelIndex: number) => ChannelStats | null
@@ -15,6 +16,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:baudRate': [value: number]
   'update:bufferSize': [value: number]
+  'update:protocol': [value: ProtocolType]
   'updateChannel': [id: number, updates: Partial<ChannelConfig>]
   'toggleVisibility': [id: number]
 }>()
@@ -49,6 +51,23 @@ const displayChannels = computed(() => {
           </datalist>
         </div>
         <div class="text-xs text-gray-600 mt-1">常用: 9600, 115200, 921600</div>
+      </div>
+
+      <!-- 协议选择 -->
+      <div class="mb-3">
+        <label class="block text-xs text-gray-500 mb-1">协议类型</label>
+        <select
+          :value="protocol"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+          @change="emit('update:protocol', ($event.target as HTMLSelectElement).value as ProtocolType)"
+        >
+          <option v-for="opt in PROTOCOL_OPTIONS" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <div class="text-xs text-gray-600 mt-1">
+          {{ PROTOCOL_OPTIONS.find(o => o.value === protocol)?.description }}
+        </div>
       </div>
 
       <!-- 缓冲区大小 -->
