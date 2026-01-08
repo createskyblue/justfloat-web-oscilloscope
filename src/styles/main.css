@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --channel-1: #2196F3;
+  --channel-2: #4CAF50;
+  --channel-3: #FF9800;
+  --channel-4: #E91E63;
+  --channel-5: #9C27B0;
+  --channel-6: #00BCD4;
+  --channel-7: #FFEB3B;
+  --channel-8: #795548;
+}
+
+body {
+  @apply bg-gray-900 text-gray-100;
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#app {
+  @apply h-screen w-screen;
+}
+
+/* uPlot 样式覆盖 */
+.uplot {
+  @apply w-full h-full;
+}
+
+.u-wrap {
+  @apply bg-gray-800 rounded-lg;
+}
+
+.u-legend {
+  @apply text-sm text-gray-300;
+}
+
+.u-legend th {
+  @apply font-normal;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
