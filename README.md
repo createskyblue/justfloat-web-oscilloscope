@@ -2,6 +2,9 @@
 
 基于Web的示波器应用，用于实时显示和分析来自JustFloat协议和FireWater协议设备的数据。通过Web Serial API与设备通信，解析数据并以图表形式实时展示。
 
+![JustFloat 数据解析](./img/PixPin_2026-01-08_09-17-04.png)
+![FireWater 数据解析](./img/PixPin_2026-01-09_04-00-32.png)
+
 ## 功能特性
 
 - 通过串口连接设备并接收数据

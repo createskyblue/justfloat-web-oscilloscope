@@ -21,7 +21,7 @@ export function useProtocolParser() {
   // FireWater 内部状态
   let firewaterBuffer = ''
   let firewaterFirstLineSkipped = false // 标记是否已跳过第一行（可能不完整）
-  const textDecoder = new TextDecoder()
+  let textDecoder = new TextDecoder()
 
   let onFrameCallback: ((values: number[]) => void) | null = null
 
@@ -216,6 +216,7 @@ export function useProtocolParser() {
     // FireWater 状态
     firewaterBuffer = ''
     firewaterFirstLineSkipped = false
+    textDecoder = new TextDecoder() // 重新创建以清除内部状态
   }
 
   const fullReset = () => {

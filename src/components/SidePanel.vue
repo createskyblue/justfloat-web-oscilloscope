@@ -10,6 +10,8 @@ const props = defineProps<{
   protocol: ProtocolType
   channels: ChannelConfig[]
   channelCount: number
+  cursorValues: number[] | null
+  cursorIndex: number | null
   getChannelStats: (channelIndex: number) => ChannelStats | null
 }>()
 
@@ -60,6 +62,16 @@ const commitBufferSize = () => {
 const displayChannels = computed(() => {
   return props.channels.slice(0, props.channelCount)
 })
+
+// 获取指定通道的光标值（应用系数）
+const getCursorValue = (channelId: number): number | null => {
+  if (!props.cursorValues || channelId >= props.cursorValues.length) {
+    return null
+  }
+  const rawValue = props.cursorValues[channelId]
+  const coefficient = props.channels[channelId]?.coefficient ?? 1
+  return rawValue * coefficient
+}
 </script>
 
 <template>
@@ -142,6 +154,8 @@ const displayChannels = computed(() => {
           :key="channel.id"
           :channel="channel"
           :stats="getChannelStats(channel.id)"
+          :cursor-value="getCursorValue(channel.id)"
+          :cursor-index="cursorIndex"
           @update="(updates) => emit('updateChannel', channel.id, updates)"
           @toggle-visibility="emit('toggleVisibility', channel.id)"
         />

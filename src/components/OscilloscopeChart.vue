@@ -20,6 +20,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'selection-change': [stats: SelectionStats | null]
+  'cursor-values': [values: number[] | null, index: number | null]
 }>()
 
 const chartContainer = ref<HTMLDivElement | null>(null)
@@ -29,6 +30,9 @@ const chart = shallowRef<uPlot | null>(null)
 const selectionStats = ref<SelectionStats | null>(null)
 const isZoomed = ref(false)
 const zoomRange = ref<{ start: number; end: number } | null>(null)
+
+// 光标值状态
+const cursorIndex = ref<number | null>(null)
 
 // 模态框拖动状态
 const panelRef = ref<HTMLDivElement | null>(null)
@@ -192,6 +196,23 @@ const createOptions = (width: number, height: number): uPlot.Options => {
           // 清除选择框
           u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false)
         }
+      ],
+      setCursor: [
+        (u) => {
+          const idx = u.cursor.idx
+          if (idx != null && idx >= 0 && u.data && u.data[0] && idx < u.data[0].length) {
+            // 获取各通道在当前光标位置的值
+            const values: number[] = []
+            for (let i = 1; i < u.data.length; i++) {
+              values.push(u.data[i][idx] as number)
+            }
+            cursorIndex.value = Math.round(u.data[0][idx] as number)
+            emit('cursor-values', values, cursorIndex.value)
+          } else {
+            cursorIndex.value = null
+            emit('cursor-values', null, null)
+          }
+        }
       ]
     }
   }
@@ -240,7 +261,16 @@ const updateChart = () => {
       chartData = props.getChartData()
     }
 
-    if (!chartData || chartData.length === 0) {
+    // 如果没有数据，显示空图表
+    if (!chartData || chartData.length === 0 || chartData[0].length === 0) {
+      if (chart.value) {
+        // 设置空数据以清除图表显示
+        const emptyData: uPlot.AlignedData = [[]]
+        for (let i = 0; i < props.channelCount; i++) {
+          emptyData.push([])
+        }
+        chart.value.setData(emptyData)
+      }
       rafId = requestAnimationFrame(updateChart)
       isUpdating = false
       return

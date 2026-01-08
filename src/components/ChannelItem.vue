@@ -7,6 +7,8 @@ import { formatNumber } from '@/utils/helpers'
 const props = defineProps<{
   channel: ChannelConfig
   stats: ChannelStats | null
+  cursorValue: number | null
+  cursorIndex: number | null
 }>()
 
 const emit = defineEmits<{
@@ -157,6 +159,17 @@ const selectColor = (color: string) => {
 
     <!-- 实时统计信息（未展开时显示简化版） -->
     <div v-if="stats && !isExpanded" class="px-3 pb-2">
+      <!-- 光标值显示 -->
+      <div v-if="cursorValue != null" class="mb-2 flex items-center justify-between text-xs bg-gray-800/50 rounded px-2 py-1">
+        <span class="text-yellow-500">
+          <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2z" />
+          </svg>
+          光标 [{{ cursorIndex }}]
+        </span>
+        <span class="text-yellow-400 font-mono tabular-nums">{{ formatNumber(cursorValue) }}</span>
+      </div>
+
       <div class="grid grid-cols-4 gap-1 text-xs">
         <div class="text-center">
           <div class="text-gray-500">最小</div>
@@ -225,6 +238,18 @@ const selectColor = (color: string) => {
       <!-- 详细统计信息 -->
       <div v-if="stats" class="pt-2 border-t border-gray-700">
         <div class="text-xs text-gray-500 mb-2">实时统计</div>
+
+        <!-- 光标值显示 -->
+        <div v-if="cursorValue != null" class="mb-2 flex items-center justify-between text-xs bg-yellow-900/30 rounded px-2 py-1 border border-yellow-700/30">
+          <span class="text-yellow-500">
+            <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2z" />
+            </svg>
+            光标值 [{{ cursorIndex }}]:
+          </span>
+          <span class="text-yellow-400 font-mono tabular-nums">{{ formatNumber(cursorValue) }}</span>
+        </div>
+
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div class="flex justify-between">
             <span class="text-gray-500">最小值:</span>

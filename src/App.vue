@@ -32,6 +32,10 @@ const baudRate = ref(savedConfig.baudRate)
 const bufferSize = ref(savedConfig.bufferSize)
 const protocol = ref<ProtocolType>(savedConfig.protocol || 'justfloat')
 
+// 光标值状态
+const cursorValues = ref<number[] | null>(null)
+const cursorIndex = ref<number | null>(null)
+
 // 初始化协议
 parser.setProtocol(protocol.value)
 
@@ -88,6 +92,14 @@ watch(bufferSize, (size) => {
 const handleClear = () => {
   buffer.clear()
   parser.fullReset()
+  cursorValues.value = null
+  cursorIndex.value = null
+}
+
+// 光标值变化
+const handleCursorValues = (values: number[] | null, index: number | null) => {
+  cursorValues.value = values
+  cursorIndex.value = index
 }
 
 // 导出数据
@@ -174,6 +186,8 @@ onUnmounted(() => {
         v-model:protocol="protocol"
         :channels="channelConfig.channels.value"
         :channel-count="parser.channelCount.value"
+        :cursor-values="cursorValues"
+        :cursor-index="cursorIndex"
         :get-channel-stats="(id: number) => buffer.getChannelStats(id, channelConfig.channels.value[id]?.coefficient ?? 1)"
         @update-channel="channelConfig.updateChannel"
         @toggle-visibility="channelConfig.toggleVisibility"
@@ -191,6 +205,7 @@ onUnmounted(() => {
           :get-chart-data="() => buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :get-chart-data-in-range="(start: number, end: number) => buffer.getChartDataInRange(start, end, parser.channelCount.value, channelConfig.getCoefficients())"
           :get-selection-stats="(start: number, end: number) => buffer.getSelectionStats(start, end, parser.channelCount.value, channelConfig.getCoefficients())"
+          @cursor-values="handleCursorValues"
         />
       </div>
     </div>
