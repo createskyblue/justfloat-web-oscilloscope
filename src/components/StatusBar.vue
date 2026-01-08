@@ -56,7 +56,7 @@ const statusText = {
         <span class="hidden sm:inline">createskyblue@outlook.com</span>
       </a>
       <a
-        href="https://createskyblue.github.io/justfloat-web-oscilloscope/"
+        href="https://github.com/createskyblue/justfloat-web-oscilloscope"
         target="_blank"
         rel="noopener noreferrer"
         class="hover:text-gray-300 transition-colors flex items-center gap-1"
