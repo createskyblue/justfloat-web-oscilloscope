@@ -96,6 +96,7 @@ const handleExport = () => {
     config: {
       baudRate: baudRate.value,
       bufferSize: bufferSize.value,
+      protocol: protocol.value,
       channels: channelConfig.channels.value
     },
     data: buffer.exportData(),
@@ -179,7 +180,7 @@ onUnmounted(() => {
       />
 
       <!-- 图表区域 -->
-      <div class="flex-1 p-4">
+      <div class="flex-1 min-w-0 p-4">
         <OscilloscopeChart
           :data="buffer.data.value"
           :data-version="buffer.dataVersion.value"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { ChannelConfig, ChannelStats, ProtocolType } from '@/types'
 import { BAUD_RATES, MIN_BUFFER_SIZE, MAX_BUFFER_SIZE, PROTOCOL_OPTIONS } from '@/types'
 import ChannelItem from './ChannelItem.vue'
@@ -21,6 +21,41 @@ const emit = defineEmits<{
   'toggleVisibility': [id: number]
 }>()
 
+// 本地状态（防止输入时被外部值覆盖）
+const localBaudRate = ref(props.baudRate)
+const localBufferSize = ref(props.bufferSize)
+const isEditingBaudRate = ref(false)
+const isEditingBufferSize = ref(false)
+
+// 监听外部变化，仅在非编辑状态下同步
+watch(() => props.baudRate, (newVal) => {
+  if (!isEditingBaudRate.value) {
+    localBaudRate.value = newVal
+  }
+})
+
+watch(() => props.bufferSize, (newVal) => {
+  if (!isEditingBufferSize.value) {
+    localBufferSize.value = newVal
+  }
+})
+
+// 提交波特率
+const commitBaudRate = () => {
+  isEditingBaudRate.value = false
+  const value = Math.max(300, localBaudRate.value || 115200)
+  localBaudRate.value = value
+  emit('update:baudRate', value)
+}
+
+// 提交缓冲区大小
+const commitBufferSize = () => {
+  isEditingBufferSize.value = false
+  const value = Math.max(MIN_BUFFER_SIZE, Math.min(MAX_BUFFER_SIZE, localBufferSize.value))
+  localBufferSize.value = value
+  emit('update:bufferSize', value)
+}
+
 // 显示的通道数量
 const displayChannels = computed(() => {
   return props.channels.slice(0, props.channelCount)
@@ -28,7 +63,7 @@ const displayChannels = computed(() => {
 </script>
 
 <template>
-  <aside class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col overflow-hidden">
+  <aside class="w-72 flex-shrink-0 bg-gray-800 border-r border-gray-700 flex flex-col overflow-hidden">
     <!-- 连接配置 -->
     <div class="p-4 border-b border-gray-700">
       <h2 class="text-sm font-semibold text-gray-400 mb-3">连接配置</h2>
@@ -39,12 +74,14 @@ const displayChannels = computed(() => {
         <div class="relative">
           <input
             type="number"
-            :value="baudRate"
+            v-model.number="localBaudRate"
             list="baudRateList"
             min="300"
             max="4000000"
             class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            @change="emit('update:baudRate', Math.max(300, Number(($event.target as HTMLInputElement).value) || 115200))"
+            @focus="isEditingBaudRate = true"
+            @blur="commitBaudRate"
+            @keydown.enter="($event.target as HTMLInputElement).blur()"
           />
           <datalist id="baudRateList">
             <option v-for="rate in BAUD_RATES" :key="rate" :value="rate">{{ rate }}</option>
@@ -77,12 +114,14 @@ const displayChannels = computed(() => {
         </label>
         <input
           type="number"
-          :value="bufferSize"
+          v-model.number="localBufferSize"
           :min="MIN_BUFFER_SIZE"
           :max="MAX_BUFFER_SIZE"
           step="1000"
           class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
-          @change="emit('update:bufferSize', Math.max(MIN_BUFFER_SIZE, Math.min(MAX_BUFFER_SIZE, Number(($event.target as HTMLInputElement).value))))"
+          @focus="isEditingBufferSize = true"
+          @blur="commitBufferSize"
+          @keydown.enter="($event.target as HTMLInputElement).blur()"
         />
       </div>
     </div>

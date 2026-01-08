@@ -77,6 +77,8 @@ const stopDrag = () => {
 let rafId: number | null = null
 let lastUpdateTime = 0
 let isUpdating = false
+let resizeObserver: ResizeObserver | null = null
+let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 
 // 根据数据量调整刷新间隔
 const adjustedInterval = computed(() => {
@@ -299,12 +301,30 @@ const destroyChart = () => {
   }
 }
 
-// 调整大小
+// 调整大小（带防抖）
 const handleResize = () => {
-  if (!chartContainer.value || !chart.value) return
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout)
+  }
 
-  const rect = chartContainer.value.getBoundingClientRect()
-  chart.value.setSize({ width: rect.width, height: rect.height })
+  resizeTimeout = setTimeout(() => {
+    if (!chartContainer.value || !chart.value) return
+
+    const rect = chartContainer.value.getBoundingClientRect()
+    const width = Math.max(100, Math.floor(rect.width))
+    const height = Math.max(100, Math.floor(rect.height))
+
+    // 检查尺寸是否有效且有变化
+    if (width > 0 && height > 0) {
+      const currentSize = chart.value.width
+      const currentHeight = chart.value.height
+
+      // 只在尺寸真正变化时才更新
+      if (Math.abs(currentSize - width) > 1 || Math.abs(currentHeight - height) > 1) {
+        chart.value.setSize({ width, height })
+      }
+    }
+  }, 100) // 100ms 防抖
 }
 
 // 监听通道数变化
@@ -321,11 +341,33 @@ onMounted(() => {
   initChart()
   rafId = requestAnimationFrame(updateChart)
 
+  // 使用 ResizeObserver 监听容器大小变化
+  if (chartContainer.value) {
+    resizeObserver = new ResizeObserver(() => {
+      handleResize()
+    })
+    resizeObserver.observe(chartContainer.value)
+  }
+
+  // 同时监听窗口 resize 事件作为备用
   window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   destroyChart()
+
+  // 清理 ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+
+  // 清理 resize timeout
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout)
+    resizeTimeout = null
+  }
+
   window.removeEventListener('resize', handleResize)
   // 确保清理拖动事件
   document.removeEventListener('mousemove', onDrag)
