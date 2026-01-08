@@ -408,7 +408,6 @@ export function useDataBuffer(initialSize: number = 10000) {
   const clear = () => {
     ringBuffer.clear()
     cachedStats.clear()
-    lastStatsUpdate = 0
     data.value = []
     dataVersion.value++
     sampleRate.value = 0
