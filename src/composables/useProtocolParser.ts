@@ -20,7 +20,6 @@ export function useProtocolParser() {
 
   // FireWater 内部状态
   let firewaterBuffer = ''
-  let firewaterFirstLineSkipped = false // 标记是否已跳过第一行（可能不完整）
   let textDecoder = new TextDecoder()
 
   let onFrameCallback: ((values: number[]) => void) | null = null
@@ -116,12 +115,6 @@ export function useProtocolParser() {
       const line = firewaterBuffer.substring(0, lineEnd).trim()
       firewaterBuffer = firewaterBuffer.substring(lineEnd + 1)
 
-      // 跳过第一行（可能是不完整的数据）
-      if (!firewaterFirstLineSkipped) {
-        firewaterFirstLineSkipped = true
-        continue
-      }
-
       // 跳过空行
       if (!line) continue
 
@@ -215,7 +208,6 @@ export function useProtocolParser() {
     firstSyncIndex = -1
     // FireWater 状态
     firewaterBuffer = ''
-    firewaterFirstLineSkipped = false
     textDecoder = new TextDecoder() // 重新创建以清除内部状态
   }
 
