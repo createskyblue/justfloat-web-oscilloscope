@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist -r https://github.com/createskyblue/justfloat-web-oscilloscope -b gh-pages"
   },
   "dependencies": {
     "vue": "^3.4.21",
