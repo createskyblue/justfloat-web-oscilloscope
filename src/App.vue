@@ -114,8 +114,14 @@ const handleImport = async () => {
           channelConfig.loadChannels(data.config.channels)
         }
       }
-      if (data.data) {
+      if (data.data && data.data.length > 0) {
         buffer.importData(data.data)
+        // 根据导入的数据确定通道数
+        const firstFrame = data.data[0]
+        if (firstFrame && firstFrame.values) {
+          parser.setChannelCount(firstFrame.values.length)
+          channelConfig.ensureChannels(firstFrame.values.length)
+        }
       }
     } catch (error) {
       alert('导入失败: ' + (error as Error).message)

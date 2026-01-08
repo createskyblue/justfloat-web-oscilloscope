@@ -120,12 +120,18 @@ export function useProtocolParser() {
     frameCount.value = 0
   }
 
+  // 手动设置通道数（用于导入数据时）
+  const setChannelCount = (count: number) => {
+    channelCount.value = count
+  }
+
   return {
     channelCount,
     frameCount,
     processData,
     onFrame,
     reset,
-    fullReset
+    fullReset,
+    setChannelCount
   }
 }

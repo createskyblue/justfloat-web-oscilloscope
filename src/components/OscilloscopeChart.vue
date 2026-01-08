@@ -30,6 +30,49 @@ const selectionStats = ref<SelectionStats | null>(null)
 const isZoomed = ref(false)
 const zoomRange = ref<{ start: number; end: number } | null>(null)
 
+// 模态框拖动状态
+const panelRef = ref<HTMLDivElement | null>(null)
+const panelPosition = ref({ x: 8, y: 8 }) // 默认左上角
+const isDragging = ref(false)
+const dragOffset = ref({ x: 0, y: 0 })
+
+// 开始拖动
+const startDrag = (e: MouseEvent) => {
+  if (!panelRef.value) return
+  isDragging.value = true
+  const rect = panelRef.value.getBoundingClientRect()
+  dragOffset.value = {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top
+  }
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+// 拖动中
+const onDrag = (e: MouseEvent) => {
+  if (!isDragging.value || !chartContainer.value) return
+  const containerRect = chartContainer.value.getBoundingClientRect()
+  const panelRect = panelRef.value?.getBoundingClientRect()
+  if (!panelRect) return
+
+  let newX = e.clientX - containerRect.left - dragOffset.value.x
+  let newY = e.clientY - containerRect.top - dragOffset.value.y
+
+  // 限制在容器内
+  newX = Math.max(0, Math.min(newX, containerRect.width - panelRect.width))
+  newY = Math.max(0, Math.min(newY, containerRect.height - panelRect.height))
+
+  panelPosition.value = { x: newX, y: newY }
+}
+
+// 停止拖动
+const stopDrag = () => {
+  isDragging.value = false
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
 // 刷新相关
 let rafId: number | null = null
 let lastUpdateTime = 0
@@ -240,6 +283,7 @@ const resetZoom = () => {
   isZoomed.value = false
   zoomRange.value = null
   selectionStats.value = null
+  panelPosition.value = { x: 8, y: 8 } // 重置位置
   emit('selection-change', null)
 }
 
@@ -283,6 +327,9 @@ onMounted(() => {
 onUnmounted(() => {
   destroyChart()
   window.removeEventListener('resize', handleResize)
+  // 确保清理拖动事件
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
 })
 
 // 暴露方法给父组件
@@ -328,17 +375,34 @@ defineExpose({
       </div>
     </div>
 
-    <!-- 选区统计面板 - 左上角，垂直布局 -->
+    <!-- 选区统计面板 - 可拖动，垂直布局 -->
     <div
       v-if="selectionStats"
-      class="absolute top-2 left-2 bg-gray-900/95 backdrop-blur rounded-lg p-3 z-10 border border-gray-700 max-h-[80%] overflow-y-auto"
-      style="min-width: 200px; max-width: 280px;"
+      ref="panelRef"
+      class="absolute bg-gray-900/95 backdrop-blur rounded-lg p-3 z-10 border border-gray-700 max-h-[80%] overflow-y-auto shadow-xl"
+      :class="{ 'cursor-grabbing': isDragging }"
+      :style="{
+        left: panelPosition.x + 'px',
+        top: panelPosition.y + 'px',
+        minWidth: '200px',
+        maxWidth: '280px'
+      }"
     >
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-sm font-semibold text-white">选区数据分析</h3>
+      <!-- 拖动手柄 -->
+      <div
+        class="flex items-center justify-between mb-2 cursor-grab select-none"
+        :class="{ 'cursor-grabbing': isDragging }"
+        @mousedown="startDrag"
+      >
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
+          </svg>
+          <h3 class="text-sm font-semibold text-white">选区数据分析</h3>
+        </div>
         <button
-          class="text-gray-400 hover:text-white"
-          @click="resetZoom"
+          class="text-gray-400 hover:text-white p-1"
+          @click.stop="resetZoom"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

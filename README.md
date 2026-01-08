@@ -2,7 +2,7 @@
 
 基于Web的示波器应用，用于实时显示和分析来自JustFloat协议设备的数据。通过Web Serial API与设备通信，解析数据并以图表形式实时展示。
 
-![JustFloat Web Oscilloscope界面](./img/98902947.jpg)
+![JustFloat Web Oscilloscope界面](./img/PixPin_2026-01-08_08-32-41.png)
 
 ## 功能特性
 
