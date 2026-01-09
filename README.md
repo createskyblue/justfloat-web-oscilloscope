@@ -3,7 +3,8 @@
 基于Web的示波器应用，用于实时显示和分析来自JustFloat协议和FireWater协议设备的数据。通过Web Serial API与设备通信，解析数据并以图表形式实时展示。
 
 ![JustFloat 数据解析](./img/PixPin_2026-01-08_09-17-04.png)
-![JustFloat 4通道 50KSa/S](./img/PixPin_2026-01-09_10-49-23.png)
+![JustFloat 1通道 100+KSa/S](./img/PixPin_2026-01-09_12-06-23.png)
+![JustFloat 1通道 100+KSa/S 统计分析](./img/PixPin_2026-01-09_12-06-41.png)
 ![FireWater 数据解析](./img/PixPin_2026-01-09_04-00-32.png)
 
 ## 功能特性
@@ -18,7 +19,7 @@
 - 实时显示通道统计数据（最小值、最大值、平均值、当前值）
 - 可配置的缓冲区大小（最小1000点，最大1000000点）
 - 支持多种波特率（默认115200）
-- 性能优化：JustFloat模式下 4个通道 50KSa/s 运行流畅！
+- 性能优化：JustFloat模式下 1个通道 100KSa/s 运行流畅！
 
 ## 协议说明
 
