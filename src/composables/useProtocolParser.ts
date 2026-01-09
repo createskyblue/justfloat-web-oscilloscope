@@ -23,6 +23,54 @@ export function useProtocolParser() {
   let textDecoder = new TextDecoder()
 
   let onFrameCallback: ((values: number[]) => void) | null = null
+  let onFramesBatchCallback: ((frames: number[][]) => void) | null = null
+
+  // 批量帧缓存机制
+  const BATCH_SIZE = 100          // 达到此数量时立即刷新
+  const IDLE_FLUSH_DELAY = 16     // 空闲16ms后刷新（约60fps）
+  let framesBatch: number[][] = []
+  let idleFlushTimer: ReturnType<typeof setTimeout> | null = null
+
+  // ==================== 批量帧处理 ====================
+
+  const flushBatch = () => {
+    if (idleFlushTimer) {
+      clearTimeout(idleFlushTimer)
+      idleFlushTimer = null
+    }
+    if (framesBatch.length === 0) return
+
+    const batch = framesBatch
+    framesBatch = []
+
+    if (onFramesBatchCallback) {
+      onFramesBatchCallback(batch)
+    } else if (onFrameCallback) {
+      // 降级：逐帧回调
+      for (const values of batch) {
+        onFrameCallback(values)
+      }
+    }
+  }
+
+  const scheduleIdleFlush = () => {
+    if (idleFlushTimer) {
+      clearTimeout(idleFlushTimer)
+    }
+    idleFlushTimer = setTimeout(flushBatch, IDLE_FLUSH_DELAY)
+  }
+
+  const addFrameToBatch = (values: number[]) => {
+    framesBatch.push(values)
+    frameCount.value++
+    channelCount.value = values.length
+
+    if (framesBatch.length >= BATCH_SIZE) {
+      flushBatch()
+    } else {
+      scheduleIdleFlush()
+    }
+  }
 
   // ==================== JustFloat 协议解析 ====================
 
@@ -80,12 +128,7 @@ export function useProtocolParser() {
               const values = parseFloats(payload)
 
               if (values.length > 0) {
-                channelCount.value = values.length
-                frameCount.value++
-
-                if (onFrameCallback) {
-                  onFrameCallback(values)
-                }
+                addFrameToBatch(values)
               }
             }
 
@@ -121,12 +164,7 @@ export function useProtocolParser() {
       // 解析行数据
       const values = parseFireWaterLine(line)
       if (values && values.length > 0) {
-        channelCount.value = values.length
-        frameCount.value++
-
-        if (onFrameCallback) {
-          onFrameCallback(values)
-        }
+        addFrameToBatch(values)
       }
     }
   }
@@ -194,6 +232,10 @@ export function useProtocolParser() {
     onFrameCallback = callback
   }
 
+  const onFramesBatch = (callback: (frames: number[][]) => void) => {
+    onFramesBatchCallback = callback
+  }
+
   const setProtocol = (protocol: ProtocolType) => {
     if (currentProtocol.value !== protocol) {
       currentProtocol.value = protocol
@@ -202,6 +244,12 @@ export function useProtocolParser() {
   }
 
   const reset = () => {
+    // 清理批量缓存
+    if (idleFlushTimer) {
+      clearTimeout(idleFlushTimer)
+      idleFlushTimer = null
+    }
+    framesBatch = []
     // JustFloat 状态
     justfloatBuffer = []
     justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
@@ -227,6 +275,7 @@ export function useProtocolParser() {
     currentProtocol,
     processData,
     onFrame,
+    onFramesBatch,
     setProtocol,
     reset,
     fullReset,

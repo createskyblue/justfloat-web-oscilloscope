@@ -25,7 +25,7 @@
 - 7kHz采样率：无丢包现象
 - 8kHz采样率：开始出现轻微丢包
 - 10kHz采样率：达到极限速度，但存在明显丢包
-- 20 kHz采样率：无法处理，实际显示采样率比10k大一点点；而使用Vofa+没问题
+- 20 kHz采样率：无法处理，测试实际处理的采样率为10.46k；而使用Vofa+没问题
 
 如果用户需要更高的采样率，建议使用桌面版本VOFA+，网页串口示波器在处理过高采样率时会受到浏览器Serial Web API瓶颈限制。
 
@@ -64,7 +64,7 @@
 
 3. 进入项目目录并安装依赖：
    ```bash
-   cd justfloat-web-oscope
+   cd justfloat-web-oscilloscope
    npm install
    ```
 

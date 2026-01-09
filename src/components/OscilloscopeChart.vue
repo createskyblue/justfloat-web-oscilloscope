@@ -84,9 +84,17 @@ let isUpdating = false
 let resizeObserver: ResizeObserver | null = null
 let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 
-// 根据数据量调整刷新间隔
+// 根据数据量和采样率调整刷新间隔
 const adjustedInterval = computed(() => {
   const points = props.totalPoints
+  const rate = props.sampleRate
+
+  // 高采样率(>7.5K)时，固定1秒刷新一次以减少渲染压力
+  if (rate > 7500) {
+    return 1000
+  }
+
+  // 正常采样率时，根据数据量动态调整
   if (points > 500000) return 500
   if (points > 200000) return 200
   if (points > 100000) return 100
@@ -297,12 +305,8 @@ const updateChart = () => {
       }
     })
 
-    // 转换为 uPlot 格式
-    const uplotData: uPlot.AlignedData = chartData.map(arr =>
-      arr instanceof Float64Array ? Array.from(arr) : arr
-    ) as uPlot.AlignedData
-
-    chart.value.setData(uplotData)
+    // 直接使用 Float64Array，uPlot 原生支持 TypedArray
+    chart.value.setData(chartData as uPlot.AlignedData)
   } finally {
     isUpdating = false
   }

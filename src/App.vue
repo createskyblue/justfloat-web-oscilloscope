@@ -55,9 +55,9 @@ serial.onData((data) => {
   parser.processData(data)
 })
 
-// 协议帧回调
-parser.onFrame((values) => {
-  buffer.addFrame(values)
+// 协议帧批量回调（高性能）
+parser.onFramesBatch((frames) => {
+  buffer.addFrames(frames)
 })
 
 // 当通道数变化时更新配置
