@@ -63,14 +63,12 @@ const displayChannels = computed(() => {
   return props.channels.slice(0, props.channelCount)
 })
 
-// 获取指定通道的光标值（应用系数）
+// 获取指定通道的光标值（图表数据已应用系数，直接返回）
 const getCursorValue = (channelId: number): number | null => {
   if (!props.cursorValues || channelId >= props.cursorValues.length) {
     return null
   }
-  const rawValue = props.cursorValues[channelId]
-  const coefficient = props.channels[channelId]?.coefficient ?? 1
-  return rawValue * coefficient
+  return props.cursorValues[channelId]
 }
 </script>
 

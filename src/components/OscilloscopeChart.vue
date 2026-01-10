@@ -370,6 +370,16 @@ watch(() => props.channelCount, (newCount, oldCount) => {
   }
 })
 
+// 监听通道配置变化（系数等），更新选区统计
+watch(() => props.channels, () => {
+  if (isZoomed.value && zoomRange.value) {
+    // 重新计算选区统计
+    const stats = props.getSelectionStats(zoomRange.value.start, zoomRange.value.end)
+    selectionStats.value = stats
+    emit('selection-change', stats)
+  }
+}, { deep: true })
+
 // 生命周期
 onMounted(() => {
   initChart()
