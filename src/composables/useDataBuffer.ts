@@ -94,7 +94,6 @@ export function useDataBuffer(initialSize: number = 10000) {
   const STATS_UPDATE_INTERVAL = 100 // 每100ms更新一次统计
 
   // 用于计算采样率的变量
-  let lastTimestamp = 0
   let sampleCount = 0
   let sampleRateUpdateTime = 0
 
@@ -123,16 +122,21 @@ export function useDataBuffer(initialSize: number = 10000) {
       values
     }
 
-    // 计算采样率（每秒更新一次）
+    // 计算采样率
     sampleCount++
-    if (now - sampleRateUpdateTime >= 1000) {
-      if (lastTimestamp > 0) {
-        sampleRate.value = Math.round(sampleCount / ((now - sampleRateUpdateTime) / 1000))
-      }
+
+    // 初始化更新时间
+    if (sampleRateUpdateTime === 0) {
+      sampleRateUpdateTime = now
+      sampleCount = 1
+    }
+
+    const elapsed = now - sampleRateUpdateTime
+    if (elapsed >= 1000) {
+      sampleRate.value = Math.round(sampleCount / (elapsed / 1000))
       sampleRateUpdateTime = now
       sampleCount = 0
     }
-    lastTimestamp = now
 
     ringBuffer.push(frame)
     scheduleUpdate()
@@ -140,6 +144,8 @@ export function useDataBuffer(initialSize: number = 10000) {
 
   // 批量添加数据帧
   const addFrames = (frames: number[][]) => {
+    if (frames.length === 0) return
+
     const now = performance.now()
     const newFrames: DataFrame[] = frames.map((values, index) => ({
       timestamp: now + index * 0.1,
@@ -148,14 +154,19 @@ export function useDataBuffer(initialSize: number = 10000) {
 
     // 计算采样率
     sampleCount += frames.length
-    if (now - sampleRateUpdateTime >= 1000) {
-      if (lastTimestamp > 0) {
-        sampleRate.value = Math.round(sampleCount / ((now - sampleRateUpdateTime) / 1000))
-      }
+
+    // 初始化更新时间
+    if (sampleRateUpdateTime === 0) {
+      sampleRateUpdateTime = now
+      sampleCount = frames.length
+    }
+
+    const elapsed = now - sampleRateUpdateTime
+    if (elapsed >= 1000) {
+      sampleRate.value = Math.round(sampleCount / (elapsed / 1000))
       sampleRateUpdateTime = now
       sampleCount = 0
     }
-    lastTimestamp = now
 
     ringBuffer.pushBatch(newFrames)
 
@@ -412,7 +423,6 @@ export function useDataBuffer(initialSize: number = 10000) {
     data.value = []
     dataVersion.value++
     sampleRate.value = 0
-    lastTimestamp = 0
     sampleCount = 0
     sampleRateUpdateTime = 0
   }
