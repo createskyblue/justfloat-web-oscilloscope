@@ -6,6 +6,7 @@ import OscilloscopeChart from './components/OscilloscopeChart.vue'
 import StatusBar from './components/StatusBar.vue'
 import { useSerial } from './composables/useSerial'
 import { useWebSocket } from './composables/useWebSocket'
+import { useBluetooth } from './composables/useBluetooth'
 import { useProtocolParser } from './composables/useProtocolParser'
 import { useDataBuffer } from './composables/useDataBuffer'
 import { useChannelConfig } from './composables/useChannelConfig'
@@ -20,6 +21,7 @@ const savedConfig = loadConfig()
 // 初始化各模块
 const serial = useSerial()
 const websocket = useWebSocket()
+const bluetooth = useBluetooth()
 const parser = useProtocolParser()
 const buffer = useDataBuffer(savedConfig.bufferSize)
 const channelConfig = useChannelConfig()
@@ -35,11 +37,20 @@ const bufferSize = ref(savedConfig.bufferSize)
 const protocol = ref<ProtocolType>(savedConfig.protocol || 'justfloat')
 const connectionType = ref<ConnectionType>(savedConfig.connectionType || 'serial')
 const wsUrl = ref(savedConfig.wsUrl || 'ws://localhost:8080')
+const btServiceUUID = ref(savedConfig.btServiceUUID || 'ffe0')
+const btCharacteristicUUID = ref(savedConfig.btCharacteristicUUID || 'ffe1')
 
 // 当前连接模块（根据连接类型切换）
-const currentConnection = computed(() =>
-  connectionType.value === 'websocket' ? websocket : serial
-)
+const currentConnection = computed(() => {
+  switch (connectionType.value) {
+    case 'websocket':
+      return websocket
+    case 'bluetooth':
+      return bluetooth
+    default:
+      return serial
+  }
+})
 
 // 光标值状态
 const cursorValues = ref<number[] | null>(null)
@@ -58,6 +69,11 @@ const handleConnect = async () => {
   } else {
     if (connectionType.value === 'websocket') {
       await websocket.connect(wsUrl.value)
+    } else if (connectionType.value === 'bluetooth') {
+      await bluetooth.connect({
+        serviceUUID: btServiceUUID.value,
+        characteristicUUID: btCharacteristicUUID.value
+      })
     } else {
       await serial.connect(baudRate.value)
     }
@@ -75,6 +91,9 @@ serial.onData(handleData)
 // WebSocket 数据回调
 websocket.onData(handleData)
 
+// 蓝牙数据回调
+bluetooth.onData(handleData)
+
 // 协议帧批量回调（高性能）
 parser.onFramesBatch((frames) => {
   buffer.addFrames(frames)
@@ -88,13 +107,15 @@ watch(() => parser.channelCount.value, (count) => {
 })
 
 // 保存配置
-watch([baudRate, bufferSize, protocol, connectionType, wsUrl, () => channelConfig.channels.value], () => {
+watch([baudRate, bufferSize, protocol, connectionType, wsUrl, btServiceUUID, btCharacteristicUUID, () => channelConfig.channels.value], () => {
   const config: AppConfig = {
     baudRate: baudRate.value,
     bufferSize: bufferSize.value,
     protocol: protocol.value,
     connectionType: connectionType.value,
     wsUrl: wsUrl.value,
+    btServiceUUID: btServiceUUID.value,
+    btCharacteristicUUID: btCharacteristicUUID.value,
     channels: channelConfig.channels.value
   }
   saveConfig(config)
@@ -133,6 +154,8 @@ const handleExport = () => {
       protocol: protocol.value,
       connectionType: connectionType.value,
       wsUrl: wsUrl.value,
+      btServiceUUID: btServiceUUID.value,
+      btCharacteristicUUID: btCharacteristicUUID.value,
       channels: channelConfig.channels.value
     },
     data: buffer.exportData(),
@@ -187,6 +210,7 @@ provide('channelConfig', channelConfig)
 onUnmounted(() => {
   serial.disconnect()
   websocket.disconnect()
+  bluetooth.disconnect()
 })
 </script>
 
@@ -195,15 +219,19 @@ onUnmounted(() => {
     <!-- 顶部导航栏 -->
     <HeaderBar
       :status="currentConnection.status.value"
-      :is-supported="connectionType === 'websocket' || serial.isSupported()"
+      :is-supported="connectionType === 'websocket' || (connectionType === 'bluetooth' ? bluetooth.isSupported() : serial.isSupported())"
       :connection-type="connectionType"
       :ws-url="wsUrl"
+      :bt-service-u-u-i-d="btServiceUUID"
+      :bt-characteristic-u-u-i-d="btCharacteristicUUID"
       @connect="handleConnect"
       @clear="handleClear"
       @export="handleExport"
       @import="handleImport"
       @update:connection-type="connectionType = $event"
       @update:ws-url="wsUrl = $event"
+      @update:bt-service-u-u-i-d="btServiceUUID = $event"
+      @update:bt-characteristic-u-u-i-d="btCharacteristicUUID = $event"
     />
 
     <!-- 主内容区 -->

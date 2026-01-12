@@ -2,12 +2,13 @@
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 
 // 连接类型
-export type ConnectionType = 'serial' | 'websocket'
+export type ConnectionType = 'serial' | 'websocket' | 'bluetooth'
 
 // 连接类型选项
 export const CONNECTION_TYPE_OPTIONS = [
   { value: 'serial' as ConnectionType, label: '串口', description: 'Web Serial API' },
-  { value: 'websocket' as ConnectionType, label: 'WebSocket', description: 'WebSocket 连接' }
+  { value: 'websocket' as ConnectionType, label: 'WebSocket', description: 'WebSocket 连接' },
+  { value: 'bluetooth' as ConnectionType, label: '蓝牙', description: 'Web Bluetooth API' }
 ] as const
 
 // 协议类型
@@ -57,6 +58,8 @@ export interface AppConfig {
   protocol: ProtocolType
   connectionType: ConnectionType
   wsUrl: string
+  btServiceUUID: string
+  btCharacteristicUUID: string
 }
 
 // 数据帧
@@ -95,7 +98,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   channels: [],
   protocol: 'justfloat',
   connectionType: 'serial',
-  wsUrl: 'ws://localhost:8080'
+  wsUrl: 'ws://localhost:8080',
+  btServiceUUID: 'ffe0',
+  btCharacteristicUUID: 'ffe1'
 }
 
 // 默认波特率选项

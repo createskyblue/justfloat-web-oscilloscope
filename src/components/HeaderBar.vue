@@ -8,6 +8,8 @@ const props = defineProps<{
   isSupported: boolean
   connectionType: ConnectionType
   wsUrl: string
+  btServiceUUID: string
+  btCharacteristicUUID: string
 }>()
 
 const emit = defineEmits<{
@@ -17,16 +19,36 @@ const emit = defineEmits<{
   import: []
   'update:connectionType': [value: ConnectionType]
   'update:wsUrl': [value: string]
+  'update:btServiceUUID': [value: string]
+  'update:btCharacteristicUUID': [value: string]
 }>()
 
 const localWsUrl = ref(props.wsUrl)
+const localBtServiceUUID = ref(props.btServiceUUID)
+const localBtCharacteristicUUID = ref(props.btCharacteristicUUID)
 
 watch(() => props.wsUrl, (val) => {
   localWsUrl.value = val
 })
 
+watch(() => props.btServiceUUID, (val) => {
+  localBtServiceUUID.value = val
+})
+
+watch(() => props.btCharacteristicUUID, (val) => {
+  localBtCharacteristicUUID.value = val
+})
+
 const updateWsUrl = () => {
   emit('update:wsUrl', localWsUrl.value)
+}
+
+const updateBtServiceUUID = () => {
+  emit('update:btServiceUUID', localBtServiceUUID.value)
+}
+
+const updateBtCharacteristicUUID = () => {
+  emit('update:btCharacteristicUUID', localBtCharacteristicUUID.value)
 }
 
 const handleConnectionTypeChange = (event: Event) => {
@@ -112,6 +134,28 @@ const statusColor = {
         @blur="updateWsUrl"
         @keyup.enter="updateWsUrl"
       />
+
+      <!-- 蓝牙 UUID 输入 -->
+      <template v-if="connectionType === 'bluetooth'">
+        <input
+          v-model="localBtServiceUUID"
+          type="text"
+          placeholder="服务 UUID (如 ffe0)"
+          class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-36"
+          :disabled="status === 'connected' || status === 'connecting'"
+          @blur="updateBtServiceUUID"
+          @keyup.enter="updateBtServiceUUID"
+        />
+        <input
+          v-model="localBtCharacteristicUUID"
+          type="text"
+          placeholder="特征 UUID (如 ffe1)"
+          class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-36"
+          :disabled="status === 'connected' || status === 'connecting'"
+          @blur="updateBtCharacteristicUUID"
+          @keyup.enter="updateBtCharacteristicUUID"
+        />
+      </template>
 
       <div class="w-px h-6 bg-gray-600 mx-2"></div>
 

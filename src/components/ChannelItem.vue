@@ -22,7 +22,7 @@ const showColorPicker = ref(false)
 // 本地编辑状态（防止输入时被外部更新覆盖）
 const localName = ref(props.channel.name)
 const localUnit = ref(props.channel.unit)
-const localCoefficient = ref(props.channel.coefficient)
+const localCoefficient = ref(String(props.channel.coefficient))
 const isEditingName = ref(false)
 const isEditingUnit = ref(false)
 const isEditingCoefficient = ref(false)
@@ -35,7 +35,7 @@ watch(() => props.channel.unit, (newVal) => {
   if (!isEditingUnit.value) localUnit.value = newVal
 })
 watch(() => props.channel.coefficient, (newVal) => {
-  if (!isEditingCoefficient.value) localCoefficient.value = newVal
+  if (!isEditingCoefficient.value) localCoefficient.value = String(newVal)
 })
 
 // 提交编辑
@@ -56,7 +56,11 @@ const submitUnit = () => {
 
 const submitCoefficient = () => {
   isEditingCoefficient.value = false
-  const value = localCoefficient.value || 1
+  const parsed = parseFloat(localCoefficient.value)
+  // 检查数值合法性：非空、是有效数字、不为0
+  const value = (!localCoefficient.value || isNaN(parsed) || parsed === 0) ? 1 : parsed
+  // 更新本地显示为规范化后的值
+  localCoefficient.value = String(value)
   if (value !== props.channel.coefficient) {
     emit('update', { coefficient: value })
   }
@@ -223,9 +227,8 @@ const selectColor = (color: string) => {
         <div>
           <label class="block text-xs text-gray-500 mb-1">系数</label>
           <input
-            type="number"
-            v-model.number="localCoefficient"
-            step="0.000001"
+            type="text"
+            v-model="localCoefficient"
             placeholder="1.0"
             class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
             @focus="isEditingCoefficient = true"
