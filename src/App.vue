@@ -224,6 +224,7 @@ onUnmounted(() => {
       :ws-url="wsUrl"
       :bt-service-u-u-i-d="btServiceUUID"
       :bt-characteristic-u-u-i-d="btCharacteristicUUID"
+      :baud-rate="baudRate"
       @connect="handleConnect"
       @clear="handleClear"
       @export="handleExport"
@@ -232,13 +233,13 @@ onUnmounted(() => {
       @update:ws-url="wsUrl = $event"
       @update:bt-service-u-u-i-d="btServiceUUID = $event"
       @update:bt-characteristic-u-u-i-d="btCharacteristicUUID = $event"
+      @update:baud-rate="baudRate = $event"
     />
 
     <!-- 主内容区 -->
     <div class="flex-1 flex overflow-hidden">
       <!-- 左侧面板 -->
       <SidePanel
-        v-model:baud-rate="baudRate"
         v-model:buffer-size="bufferSize"
         v-model:protocol="protocol"
         :channels="channelConfig.channels.value"

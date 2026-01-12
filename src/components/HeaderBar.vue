@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { ConnectionStatus, ConnectionType } from '@/types'
-import { CONNECTION_TYPE_OPTIONS } from '@/types'
+import { CONNECTION_TYPE_OPTIONS, BAUD_RATES } from '@/types'
 
 const props = defineProps<{
   status: ConnectionStatus
@@ -10,6 +10,7 @@ const props = defineProps<{
   wsUrl: string
   btServiceUUID: string
   btCharacteristicUUID: string
+  baudRate: number
 }>()
 
 const emit = defineEmits<{
@@ -21,11 +22,13 @@ const emit = defineEmits<{
   'update:wsUrl': [value: string]
   'update:btServiceUUID': [value: string]
   'update:btCharacteristicUUID': [value: string]
+  'update:baudRate': [value: number]
 }>()
 
 const localWsUrl = ref(props.wsUrl)
 const localBtServiceUUID = ref(props.btServiceUUID)
 const localBtCharacteristicUUID = ref(props.btCharacteristicUUID)
+const localBaudRate = ref(props.baudRate)
 
 watch(() => props.wsUrl, (val) => {
   localWsUrl.value = val
@@ -39,6 +42,10 @@ watch(() => props.btCharacteristicUUID, (val) => {
   localBtCharacteristicUUID.value = val
 })
 
+watch(() => props.baudRate, (val) => {
+  localBaudRate.value = val
+})
+
 const updateWsUrl = () => {
   emit('update:wsUrl', localWsUrl.value)
 }
@@ -49,6 +56,12 @@ const updateBtServiceUUID = () => {
 
 const updateBtCharacteristicUUID = () => {
   emit('update:btCharacteristicUUID', localBtCharacteristicUUID.value)
+}
+
+const updateBaudRate = () => {
+  const value = Math.max(300, localBaudRate.value || 115200)
+  localBaudRate.value = value
+  emit('update:baudRate', value)
 }
 
 const handleConnectionTypeChange = (event: Event) => {
@@ -122,6 +135,26 @@ const statusColor = {
           {{ option.label }}
         </option>
       </select>
+
+      <!-- 串口波特率输入 -->
+      <div v-if="connectionType === 'serial'" class="flex items-center gap-1">
+        <input
+          v-model.number="localBaudRate"
+          type="number"
+          list="baudRateList"
+          min="300"
+          max="4000000"
+          placeholder="115200"
+          class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-28"
+          :disabled="status === 'connected' || status === 'connecting'"
+          @blur="updateBaudRate"
+          @keyup.enter="updateBaudRate"
+        />
+        <datalist id="baudRateList">
+          <option v-for="rate in BAUD_RATES" :key="rate" :value="rate" />
+        </datalist>
+        <span class="text-xs text-gray-500">bps</span>
+      </div>
 
       <!-- WebSocket 地址输入 -->
       <input

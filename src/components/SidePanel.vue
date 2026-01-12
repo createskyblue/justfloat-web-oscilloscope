@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { ChannelConfig, ChannelStats, ProtocolType } from '@/types'
-import { BAUD_RATES, MIN_BUFFER_SIZE, MAX_BUFFER_SIZE, PROTOCOL_OPTIONS } from '@/types'
+import { MIN_BUFFER_SIZE, MAX_BUFFER_SIZE, PROTOCOL_OPTIONS } from '@/types'
 import ChannelItem from './ChannelItem.vue'
 
 const props = defineProps<{
-  baudRate: number
   bufferSize: number
   protocol: ProtocolType
   channels: ChannelConfig[]
@@ -16,7 +15,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:baudRate': [value: number]
   'update:bufferSize': [value: number]
   'update:protocol': [value: ProtocolType]
   'updateChannel': [id: number, updates: Partial<ChannelConfig>]
@@ -24,31 +22,15 @@ const emit = defineEmits<{
 }>()
 
 // 本地状态（防止输入时被外部值覆盖）
-const localBaudRate = ref(props.baudRate)
 const localBufferSize = ref(props.bufferSize)
-const isEditingBaudRate = ref(false)
 const isEditingBufferSize = ref(false)
 
 // 监听外部变化，仅在非编辑状态下同步
-watch(() => props.baudRate, (newVal) => {
-  if (!isEditingBaudRate.value) {
-    localBaudRate.value = newVal
-  }
-})
-
 watch(() => props.bufferSize, (newVal) => {
   if (!isEditingBufferSize.value) {
     localBufferSize.value = newVal
   }
 })
-
-// 提交波特率
-const commitBaudRate = () => {
-  isEditingBaudRate.value = false
-  const value = Math.max(300, localBaudRate.value || 115200)
-  localBaudRate.value = value
-  emit('update:baudRate', value)
-}
 
 // 提交缓冲区大小
 const commitBufferSize = () => {
@@ -77,28 +59,6 @@ const getCursorValue = (channelId: number): number | null => {
     <!-- 连接配置 -->
     <div class="p-4 border-b border-gray-700">
       <h2 class="text-sm font-semibold text-gray-400 mb-3">连接配置</h2>
-
-      <!-- 波特率 -->
-      <div class="mb-3">
-        <label class="block text-xs text-gray-500 mb-1">波特率</label>
-        <div class="relative">
-          <input
-            type="number"
-            v-model.number="localBaudRate"
-            list="baudRateList"
-            min="300"
-            max="4000000"
-            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
-            @focus="isEditingBaudRate = true"
-            @blur="commitBaudRate"
-            @keydown.enter="($event.target as HTMLInputElement).blur()"
-          />
-          <datalist id="baudRateList">
-            <option v-for="rate in BAUD_RATES" :key="rate" :value="rate">{{ rate }}</option>
-          </datalist>
-        </div>
-        <div class="text-xs text-gray-600 mt-1">常用: 9600, 115200, 921600</div>
-      </div>
 
       <!-- 协议选择 -->
       <div class="mb-3">
