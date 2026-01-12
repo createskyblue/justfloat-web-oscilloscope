@@ -117,6 +117,7 @@ export const SYNC_BYTES = new Uint8Array([0x00, 0x00, 0x80, 0x7F])
 declare global {
   interface Navigator {
     serial: Serial
+    bluetooth: Bluetooth
   }
 
   interface Serial {
@@ -153,6 +154,56 @@ declare global {
   interface SerialPortInfo {
     usbVendorId?: number
     usbProductId?: number
+  }
+
+  // Web Bluetooth API 类型声明
+  interface Bluetooth {
+    requestDevice(options: BluetoothRequestDeviceOptions): Promise<BluetoothDevice>
+    getAvailability(): Promise<boolean>
+  }
+
+  interface BluetoothRequestDeviceOptions {
+    filters?: BluetoothLEScanFilter[]
+    optionalServices?: BluetoothServiceUUID[]
+    acceptAllDevices?: boolean
+  }
+
+  interface BluetoothLEScanFilter {
+    services?: BluetoothServiceUUID[]
+    name?: string
+    namePrefix?: string
+  }
+
+  type BluetoothServiceUUID = string | number
+
+  interface BluetoothDevice extends EventTarget {
+    id: string
+    name?: string
+    gatt?: BluetoothRemoteGATTServer
+  }
+
+  interface BluetoothRemoteGATTServer {
+    device: BluetoothDevice
+    connected: boolean
+    connect(): Promise<BluetoothRemoteGATTServer>
+    disconnect(): void
+    getPrimaryService(service: BluetoothServiceUUID): Promise<BluetoothRemoteGATTService>
+  }
+
+  interface BluetoothRemoteGATTService {
+    device: BluetoothDevice
+    uuid: string
+    getCharacteristic(characteristic: BluetoothServiceUUID): Promise<BluetoothRemoteGATTCharacteristic>
+  }
+
+  interface BluetoothRemoteGATTCharacteristic extends EventTarget {
+    service: BluetoothRemoteGATTService
+    uuid: string
+    value?: DataView
+    startNotifications(): Promise<BluetoothRemoteGATTCharacteristic>
+    stopNotifications(): Promise<BluetoothRemoteGATTCharacteristic>
+    readValue(): Promise<DataView>
+    writeValue(value: BufferSource): Promise<void>
   }
 }
 
