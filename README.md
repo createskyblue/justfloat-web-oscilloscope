@@ -1,6 +1,6 @@
 # JustFloat & FireWater Web 协议分析仪
 
-基于Web的示波器应用，用于实时显示和分析来自JustFloat协议和FireWater协议设备的数据。通过Web Serial API与设备通信，解析数据并以图表形式实时展示。
+基于Web的示波器应用，用于实时显示和分析来自JustFloat协议和FireWater协议设备的数据。通过Web Serial API或WebSocket与设备通信，解析数据并以图表形式实时展示。
 
 ![JustFloat 数据解析](./img/PixPin_2026-01-08_09-17-04.png)
 ![JustFloat 1通道 100+KSa/S](./img/PixPin_2026-01-09_12-06-23.png)
@@ -9,10 +9,11 @@
 
 ## 功能特性
 
-- 通过串口连接设备并实时接收数据
+- 通过串口或WebSocket连接设备并实时接收数据
 - 解析JustFloat协议数据（协议格式：[float ch1, ..., float chN, 0x00, 0x00, 0x80, 0x7F]）
-- 解析FireWater协议数据（文本格式：<any>:ch0,ch1,ch2,...,chN\\n）
+- 解析FireWater协议数据（文本格式：<any>:ch0,ch1,ch2,...,chN\n）
 - 支持协议动态切换（JustFloat/FireWater）
+- 支持连接方式切换（串口/WebSocket）
 - 实时绘制多通道波形图（最多支持8种颜色区分通道）
 - 支持数据导入/导出功能（JSON格式）
 - 通道配置：可独立设置每个通道的名称、单位、系数和可见性
@@ -20,6 +21,19 @@
 - 可配置的缓冲区大小（最小1000点，最大1000000点）
 - 支持多种波特率（默认115200）
 - 性能优化：JustFloat模式下 1个通道 100KSa/s 运行流畅！
+
+## 连接方式
+
+### 串口连接
+- 使用Web Serial API与设备通信
+- 适用于本地串口设备（USB转串口、Arduino、单片机等）
+- 需要在浏览器中选择对应的串口设备
+
+### WebSocket连接
+- 通过WebSocket协议接收数据
+- 适用于远程数据源或网络转发服务
+- 支持文本和二进制数据格式
+- 可配置WebSocket服务器地址（默认：ws://localhost:8080）
 
 ## 协议说明
 
@@ -31,7 +45,7 @@
 - 解析器使用状态机逐字节解析数据
 
 ### FireWater协议
-数据格式：[<any>:]ch0,ch1,ch2,...,chN\\n
+数据格式：[<any>:]ch0,ch1,ch2,...,chN\n
 
 - 文本协议，逗号分隔的数值
 
@@ -75,11 +89,13 @@
 
 ## 使用说明
 
-1. 确保浏览器支持Web Serial API（Chrome/Edge推荐）
-2. 连接设备到电脑
+1. 确保浏览器支持所需功能（Chrome/Edge推荐）
+2. 连接设备到电脑或启动WebSocket数据服务
 3. 打开应用，选择对应的协议类型（JustFloat或FireWater）
-4. 点击"连接设备"按钮并选择对应的串口设备
-5. 根据需要调整波特率设置
+4. 选择连接方式：
+   - 串口连接：点击"连接设备"按钮并选择对应的串口设备
+   - WebSocket连接：输入WebSocket服务器地址，点击"连接"按钮
+5. 根据需要调整波特率设置（串口连接时有效）
 6. 实时查看设备发送的数据波形
 7. 使用鼠标框选功能进行数据区域分析
 
@@ -90,19 +106,21 @@
 - **通道控制**：可以在侧边栏单独控制每个通道的显示/隐藏
 - **实时光标**：移动鼠标可以查看任意点的具体数值
 - **数据导出**：可将当前显示的数据导出为JSON文件
+- **连接切换**：可在串口和WebSocket之间切换连接方式
 
 ## 项目结构
 
 ```
 src/
 ├── components/          # Vue组件
-│   ├── HeaderBar.vue    # 顶部导航栏
+│   ├── HeaderBar.vue    # 顶部导航栏（含连接方式选择）
 │   ├── SidePanel.vue    # 侧边面板（含协议选择）
 │   ├── OscilloscopeChart.vue # 示波器图表
 │   ├── StatusBar.vue    # 状态栏
 │   └── ChannelItem.vue  # 通道配置项
 ├── composables/         # Vue组合式API函数
 │   ├── useSerial.ts     # 串口通信
+│   ├── useWebSocket.ts  # WebSocket通信
 │   ├── useProtocolParser.ts # 协议解析（支持JustFloat和FireWater）
 │   ├── useDataBuffer.ts # 数据缓冲
 │   ├── useChannelConfig.ts # 通道配置
