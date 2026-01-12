@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import type { ConnectionStatus } from '@/types'
+import { ref, watch } from 'vue'
+import type { ConnectionStatus, ConnectionType } from '@/types'
+import { CONNECTION_TYPE_OPTIONS } from '@/types'
 
-defineProps<{
+const props = defineProps<{
   status: ConnectionStatus
   isSupported: boolean
+  connectionType: ConnectionType
+  wsUrl: string
 }>()
 
 const emit = defineEmits<{
@@ -11,7 +15,24 @@ const emit = defineEmits<{
   clear: []
   export: []
   import: []
+  'update:connectionType': [value: ConnectionType]
+  'update:wsUrl': [value: string]
 }>()
+
+const localWsUrl = ref(props.wsUrl)
+
+watch(() => props.wsUrl, (val) => {
+  localWsUrl.value = val
+})
+
+const updateWsUrl = () => {
+  emit('update:wsUrl', localWsUrl.value)
+}
+
+const handleConnectionTypeChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  emit('update:connectionType', target.value as ConnectionType)
+}
 
 const statusText = {
   disconnected: '未连接',
@@ -61,6 +82,36 @@ const statusColor = {
       >
         清除
       </button>
+
+      <div class="w-px h-6 bg-gray-600 mx-2"></div>
+
+      <!-- 连接方式选择 -->
+      <select
+        :value="connectionType"
+        class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+        :disabled="status === 'connected' || status === 'connecting'"
+        @change="handleConnectionTypeChange"
+      >
+        <option
+          v-for="option in CONNECTION_TYPE_OPTIONS"
+          :key="option.value"
+          :value="option.value"
+        >
+          {{ option.label }}
+        </option>
+      </select>
+
+      <!-- WebSocket 地址输入 -->
+      <input
+        v-if="connectionType === 'websocket'"
+        v-model="localWsUrl"
+        type="text"
+        placeholder="ws://localhost:8080"
+        class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-48"
+        :disabled="status === 'connected' || status === 'connecting'"
+        @blur="updateWsUrl"
+        @keyup.enter="updateWsUrl"
+      />
 
       <div class="w-px h-6 bg-gray-600 mx-2"></div>
 

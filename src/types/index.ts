@@ -1,6 +1,15 @@
 // 连接状态
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 
+// 连接类型
+export type ConnectionType = 'serial' | 'websocket'
+
+// 连接类型选项
+export const CONNECTION_TYPE_OPTIONS = [
+  { value: 'serial' as ConnectionType, label: '串口', description: 'Web Serial API' },
+  { value: 'websocket' as ConnectionType, label: 'WebSocket', description: 'WebSocket 连接' }
+] as const
+
 // 协议类型
 export type ProtocolType = 'justfloat' | 'firewater'
 
@@ -46,6 +55,8 @@ export interface AppConfig {
   bufferSize: number
   channels: ChannelConfig[]
   protocol: ProtocolType
+  connectionType: ConnectionType
+  wsUrl: string
 }
 
 // 数据帧
@@ -82,7 +93,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   baudRate: 115200,
   bufferSize: 10000,
   channels: [],
-  protocol: 'justfloat'
+  protocol: 'justfloat',
+  connectionType: 'serial',
+  wsUrl: 'ws://localhost:8080'
 }
 
 // 默认波特率选项

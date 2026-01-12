@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted, provide } from 'vue'
+import { ref, watch, onUnmounted, provide, computed } from 'vue'
 import HeaderBar from './components/HeaderBar.vue'
 import SidePanel from './components/SidePanel.vue'
 import OscilloscopeChart from './components/OscilloscopeChart.vue'
 import StatusBar from './components/StatusBar.vue'
 import { useSerial } from './composables/useSerial'
+import { useWebSocket } from './composables/useWebSocket'
 import { useProtocolParser } from './composables/useProtocolParser'
 import { useDataBuffer } from './composables/useDataBuffer'
 import { useChannelConfig } from './composables/useChannelConfig'
 import { useStorage } from './composables/useStorage'
-import type { AppConfig, ExportData, ProtocolType } from './types'
+import type { AppConfig, ExportData, ProtocolType, ConnectionType } from './types'
 import { downloadJson, readJsonFile } from './utils/helpers'
 
 // 初始化存储
@@ -18,6 +19,7 @@ const savedConfig = loadConfig()
 
 // 初始化各模块
 const serial = useSerial()
+const websocket = useWebSocket()
 const parser = useProtocolParser()
 const buffer = useDataBuffer(savedConfig.bufferSize)
 const channelConfig = useChannelConfig()
@@ -31,6 +33,13 @@ if (savedConfig.channels.length > 0) {
 const baudRate = ref(savedConfig.baudRate)
 const bufferSize = ref(savedConfig.bufferSize)
 const protocol = ref<ProtocolType>(savedConfig.protocol || 'justfloat')
+const connectionType = ref<ConnectionType>(savedConfig.connectionType || 'serial')
+const wsUrl = ref(savedConfig.wsUrl || 'ws://localhost:8080')
+
+// 当前连接模块（根据连接类型切换）
+const currentConnection = computed(() =>
+  connectionType.value === 'websocket' ? websocket : serial
+)
 
 // 光标值状态
 const cursorValues = ref<number[] | null>(null)
@@ -41,19 +50,30 @@ parser.setProtocol(protocol.value)
 
 // 连接串口时的波特率
 const handleConnect = async () => {
-  if (serial.status.value === 'connected') {
-    await serial.disconnect()
+  const conn = currentConnection.value
+  if (conn.status.value === 'connected') {
+    await conn.disconnect()
     // 只重置parser状态，不清空数据buffer
     parser.reset()
   } else {
-    await serial.connect(baudRate.value)
+    if (connectionType.value === 'websocket') {
+      await websocket.connect(wsUrl.value)
+    } else {
+      await serial.connect(baudRate.value)
+    }
   }
 }
 
-// 串口数据回调
-serial.onData((data) => {
+// 数据回调
+const handleData = (data: Uint8Array) => {
   parser.processData(data)
-})
+}
+
+// 串口数据回调
+serial.onData(handleData)
+
+// WebSocket 数据回调
+websocket.onData(handleData)
 
 // 协议帧批量回调（高性能）
 parser.onFramesBatch((frames) => {
@@ -68,11 +88,13 @@ watch(() => parser.channelCount.value, (count) => {
 })
 
 // 保存配置
-watch([baudRate, bufferSize, protocol, () => channelConfig.channels.value], () => {
+watch([baudRate, bufferSize, protocol, connectionType, wsUrl, () => channelConfig.channels.value], () => {
   const config: AppConfig = {
     baudRate: baudRate.value,
     bufferSize: bufferSize.value,
     protocol: protocol.value,
+    connectionType: connectionType.value,
+    wsUrl: wsUrl.value,
     channels: channelConfig.channels.value
   }
   saveConfig(config)
@@ -109,6 +131,8 @@ const handleExport = () => {
       baudRate: baudRate.value,
       bufferSize: bufferSize.value,
       protocol: protocol.value,
+      connectionType: connectionType.value,
+      wsUrl: wsUrl.value,
       channels: channelConfig.channels.value
     },
     data: buffer.exportData(),
@@ -162,6 +186,7 @@ provide('channelConfig', channelConfig)
 // 清理
 onUnmounted(() => {
   serial.disconnect()
+  websocket.disconnect()
 })
 </script>
 
@@ -169,12 +194,16 @@ onUnmounted(() => {
   <div class="h-screen flex flex-col bg-gray-900">
     <!-- 顶部导航栏 -->
     <HeaderBar
-      :status="serial.status.value"
-      :is-supported="serial.isSupported()"
+      :status="currentConnection.status.value"
+      :is-supported="connectionType === 'websocket' || serial.isSupported()"
+      :connection-type="connectionType"
+      :ws-url="wsUrl"
       @connect="handleConnect"
       @clear="handleClear"
       @export="handleExport"
       @import="handleImport"
+      @update:connection-type="connectionType = $event"
+      @update:ws-url="wsUrl = $event"
     />
 
     <!-- 主内容区 -->
@@ -212,8 +241,8 @@ onUnmounted(() => {
 
     <!-- 状态栏 -->
     <StatusBar
-      :status="serial.status.value"
-      :error-message="serial.errorMessage.value"
+      :status="currentConnection.status.value"
+      :error-message="currentConnection.errorMessage.value"
       :sample-rate="buffer.sampleRate.value"
       :total-points="buffer.totalPoints.value"
       :frame-count="parser.frameCount.value"
