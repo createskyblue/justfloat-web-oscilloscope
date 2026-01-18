@@ -84,20 +84,20 @@ const selectColor = (color: string) => {
 
 <template>
   <div
-    class="rounded-lg border transition-all duration-200 transition-colors"
+    class="rounded-lg border"
     :class="channel.visible
       ? isDark ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-100'
       : isDark ? 'border-gray-700 bg-gray-800/50 opacity-50' : 'border-gray-200 bg-gray-50 opacity-50'"
   >
     <!-- 通道头部 -->
     <div
-      :class="['flex items-center gap-2 px-3 py-2 cursor-pointer rounded-t-lg transition-colors', isDark ? 'hover:bg-gray-700/50' : 'hover:bg-gray-200']"
+      :class="['flex items-center gap-2 px-3 py-2 cursor-pointer rounded-t-lg', isDark ? 'hover:bg-gray-700/50' : 'hover:bg-gray-200']"
       @click="isExpanded = !isExpanded"
     >
       <!-- 颜色指示器（可点击更换颜色） -->
       <div class="relative">
         <button
-          class="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-transparent hover:ring-white/30 transition-all"
+          class="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-transparent hover:ring-white/30"
           :style="{ backgroundColor: channel.color }"
           @click.stop="showColorPicker = !showColorPicker"
           title="点击更换颜色"
@@ -106,14 +106,14 @@ const selectColor = (color: string) => {
         <!-- 颜色选择器 -->
         <div
           v-if="showColorPicker"
-          :class="['absolute left-0 top-5 border rounded-lg p-2 z-20 shadow-xl transition-colors duration-200', isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300']"
+          :class="['absolute left-0 top-5 border rounded-lg p-2 z-20 shadow-xl', isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300']"
           @click.stop
         >
           <div class="grid grid-cols-4 gap-1.5">
             <button
               v-for="color in colorOptions"
               :key="color"
-              class="w-5 h-5 rounded-full transition-transform hover:scale-110"
+              class="w-5 h-5 rounded-full hover:scale-110"
               :class="{ 'ring-2 ring-white': channel.color === color }"
               :style="{ backgroundColor: color }"
               @click="selectColor(color)"
@@ -136,7 +136,7 @@ const selectColor = (color: string) => {
 
       <!-- 可见性开关 -->
       <button
-        class="p-1 rounded transition-colors"
+        class="p-1 rounded"
         :class="[channel.visible ? 'text-blue-400' : 'text-gray-500', isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-300']"
         @click.stop="emit('toggleVisibility')"
         :title="channel.visible ? '隐藏通道' : '显示通道'"
@@ -152,7 +152,7 @@ const selectColor = (color: string) => {
 
       <!-- 展开箭头 -->
       <svg
-        :class="['w-4 h-4 transition-transform duration-200', isDark ? 'text-gray-500' : 'text-gray-400', { 'rotate-180': isExpanded }]"
+        :class="['w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-400', { 'rotate-180': isExpanded }]"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -202,7 +202,7 @@ const selectColor = (color: string) => {
         <input
           type="text"
           v-model="localName"
-          :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-colors', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
+          :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
           placeholder="输入通道名称"
           @focus="isEditingName = true"
           @blur="submitName"
@@ -218,7 +218,7 @@ const selectColor = (color: string) => {
             type="text"
             v-model="localUnit"
             placeholder="V, A, °C..."
-            :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-colors', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
+            :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
             @focus="isEditingUnit = true"
             @blur="submitUnit"
             @keyup.enter="($event.target as HTMLInputElement).blur()"
@@ -230,7 +230,7 @@ const selectColor = (color: string) => {
             type="text"
             v-model="localCoefficient"
             placeholder="1.0"
-            :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-colors', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
+            :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
             @focus="isEditingCoefficient = true"
             @blur="submitCoefficient"
             @keyup.enter="($event.target as HTMLInputElement).blur()"
@@ -280,7 +280,7 @@ const selectColor = (color: string) => {
       <!-- 快速操作 -->
       <div class="flex gap-2 pt-2">
         <button
-          class="flex-1 px-2 py-1 text-xs rounded transition-colors text-white"
+          class="flex-1 px-2 py-1 text-xs rounded text-white"
           :class="channel.visible
             ? isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-400 hover:bg-gray-500'
             : 'bg-blue-600 hover:bg-blue-500'"
@@ -289,7 +289,7 @@ const selectColor = (color: string) => {
           {{ channel.visible ? '隐藏通道' : '显示通道' }}
         </button>
         <button
-          :class="['px-2 py-1 text-xs text-white rounded transition-colors', isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-400 hover:bg-gray-500']"
+          :class="['px-2 py-1 text-xs text-white rounded', isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-400 hover:bg-gray-500']"
           @click="emit('update', {
             name: `通道 ${channel.id + 1}`,
             unit: '',

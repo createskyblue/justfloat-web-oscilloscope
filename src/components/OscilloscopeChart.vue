@@ -492,7 +492,7 @@ defineExpose({
     >
       <!-- 拖动手柄 -->
       <div
-        class="flex items-center justify-between mb-2 cursor-grab select-none"
+        class="flex items-center justify-between mb-2 select-none cursor-grab"
         :class="{ 'cursor-grabbing': isDragging }"
         @mousedown="startDrag"
       >

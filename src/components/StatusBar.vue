@@ -48,7 +48,7 @@ const statusText = {
     <div :class="['flex items-center gap-3', isDark ? 'text-gray-500' : 'text-gray-600']">
       <a
         href="mailto:createskyblue@outlook.com"
-        :class="['hover:transition-colors flex items-center gap-1', isDark ? 'hover:text-gray-300' : 'hover:text-gray-800']"
+        :class="['flex items-center gap-1', isDark ? 'hover:text-gray-300' : 'hover:text-gray-800']"
         title="联系作者"
       >
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,7 +60,7 @@ const statusText = {
         href="https://github.com/createskyblue/justfloat-web-oscilloscope"
         target="_blank"
         rel="noopener noreferrer"
-        :class="['hover:transition-colors flex items-center gap-1', isDark ? 'hover:text-gray-300' : 'hover:text-gray-800']"
+        :class="['flex items-center gap-1', isDark ? 'hover:text-gray-300' : 'hover:text-gray-800']"
         title="GitHub Pages"
       >
         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">

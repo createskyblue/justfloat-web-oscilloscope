@@ -102,7 +102,7 @@ const themeIcon = computed(() => {
     <div class="flex items-center gap-2">
       <!-- 导入 -->
       <button
-        :class="['px-3 py-1.5 text-sm rounded transition-colors', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
+        :class="['px-3 py-1.5 text-sm rounded', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
         @click="emit('import')"
       >
         导入
@@ -110,7 +110,7 @@ const themeIcon = computed(() => {
 
       <!-- 导出 -->
       <button
-        :class="['px-3 py-1.5 text-sm rounded transition-colors', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
+        :class="['px-3 py-1.5 text-sm rounded', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
         @click="emit('export')"
       >
         导出
@@ -118,7 +118,7 @@ const themeIcon = computed(() => {
 
       <!-- 清除 -->
       <button
-        :class="['px-3 py-1.5 text-sm rounded transition-colors', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
+        :class="['px-3 py-1.5 text-sm rounded', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
         @click="emit('clear')"
       >
         清除
@@ -126,7 +126,7 @@ const themeIcon = computed(() => {
 
       <!-- 主题切换按钮 -->
       <button
-        :class="['px-3 py-1.5 text-sm rounded transition-colors', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
+        :class="['px-3 py-1.5 text-sm rounded', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
         @click="emit('toggleTheme')"
         title="切换主题"
       >
@@ -219,7 +219,7 @@ const themeIcon = computed(() => {
       <!-- 连接按钮 -->
       <button
         v-if="isSupported"
-        class="px-4 py-1.5 text-sm rounded transition-colors"
+        class="px-4 py-1.5 text-sm rounded"
         :class="status === 'connected'
           ? 'bg-red-600 hover:bg-red-700 text-white'
           : 'bg-blue-600 hover:bg-blue-700 text-white'"

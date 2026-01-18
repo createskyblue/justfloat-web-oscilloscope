@@ -56,7 +56,7 @@ const getCursorValue = (channelId: number): number | null => {
 </script>
 
 <template>
-  <aside :class="['w-72 flex-shrink-0 border-r flex flex-col overflow-hidden transition-colors duration-300', isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
+  <aside :class="['w-72 flex-shrink-0 border-r flex flex-col overflow-hidden', isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
     <!-- 连接配置 -->
     <div :class="['p-4 border-b', isDark ? 'border-gray-700' : 'border-gray-200']">
       <h2 :class="['text-sm font-semibold mb-3', isDark ? 'text-gray-400' : 'text-gray-600']">连接配置</h2>
