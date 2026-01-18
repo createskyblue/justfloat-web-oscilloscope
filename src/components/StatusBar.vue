@@ -9,6 +9,7 @@ defineProps<{
   totalPoints: number
   frameCount: number
   channelCount: number
+  isDark: boolean
 }>()
 
 const statusColor = {
@@ -27,7 +28,7 @@ const statusText = {
 </script>
 
 <template>
-  <footer class="bg-gray-800 border-t border-gray-700 px-4 py-2 flex items-center justify-between text-xs">
+  <footer :class="['border-t px-4 py-2 flex items-center justify-between text-xs', isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-300']">
     <!-- 左侧状态 -->
     <div class="flex items-center gap-4">
       <!-- 连接状态 -->
@@ -38,16 +39,16 @@ const statusText = {
       </div>
 
       <!-- 通道数 -->
-      <div v-if="channelCount > 0" class="text-gray-400">
-        通道: <span class="text-gray-300">{{ channelCount }}</span>
+      <div v-if="channelCount > 0" :class="isDark ? 'text-gray-400' : 'text-gray-600'">
+        通道: <span :class="isDark ? 'text-gray-300' : 'text-gray-700'">{{ channelCount }}</span>
       </div>
     </div>
 
     <!-- 中间链接 -->
-    <div class="flex items-center gap-3 text-gray-500">
+    <div :class="['flex items-center gap-3', isDark ? 'text-gray-500' : 'text-gray-600']">
       <a
         href="mailto:createskyblue@outlook.com"
-        class="hover:text-gray-300 transition-colors flex items-center gap-1"
+        :class="['hover:transition-colors flex items-center gap-1', isDark ? 'hover:text-gray-300' : 'hover:text-gray-800']"
         title="联系作者"
       >
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -59,7 +60,7 @@ const statusText = {
         href="https://github.com/createskyblue/justfloat-web-oscilloscope"
         target="_blank"
         rel="noopener noreferrer"
-        class="hover:text-gray-300 transition-colors flex items-center gap-1"
+        :class="['hover:transition-colors flex items-center gap-1', isDark ? 'hover:text-gray-300' : 'hover:text-gray-800']"
         title="GitHub Pages"
       >
         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
@@ -70,20 +71,20 @@ const statusText = {
     </div>
 
     <!-- 右侧统计 -->
-    <div class="flex items-center gap-4 text-gray-400">
+    <div :class="['flex items-center gap-4', isDark ? 'text-gray-400' : 'text-gray-600']">
       <!-- 采样率 -->
       <div v-if="sampleRate > 0">
-        采样率: <span class="text-gray-300 font-mono">{{ formatFrequency(sampleRate) }}</span>
+        采样率: <span :class="['font-mono', isDark ? 'text-gray-300' : 'text-gray-700']">{{ formatFrequency(sampleRate) }}</span>
       </div>
 
       <!-- 数据点数 -->
       <div>
-        数据点: <span class="text-gray-300 font-mono">{{ formatLargeNumber(totalPoints) }}</span>
+        数据点: <span :class="['font-mono', isDark ? 'text-gray-300' : 'text-gray-700']">{{ formatLargeNumber(totalPoints) }}</span>
       </div>
 
       <!-- 帧计数 -->
       <div>
-        帧数: <span class="text-gray-300 font-mono">{{ formatLargeNumber(frameCount) }}</span>
+        帧数: <span :class="['font-mono', isDark ? 'text-gray-300' : 'text-gray-700']">{{ formatLargeNumber(frameCount) }}</span>
       </div>
     </div>
   </footer>

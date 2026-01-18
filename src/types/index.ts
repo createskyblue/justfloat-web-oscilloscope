@@ -60,6 +60,7 @@ export interface AppConfig {
   wsUrl: string
   btServiceUUID: string
   btCharacteristicUUID: string
+  isDark?: boolean
 }
 
 // 数据帧
@@ -100,7 +101,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   connectionType: 'serial',
   wsUrl: 'ws://localhost:8080',
   btServiceUUID: 'ffe0',
-  btCharacteristicUUID: 'ffe1'
+  btCharacteristicUUID: 'ffe1',
+  isDark: true
 }
 
 // 默认波特率选项

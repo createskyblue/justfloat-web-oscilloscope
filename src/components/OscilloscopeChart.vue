@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, watch, onMounted, onUnmounted, computed } from 'vue'
+import { ref, shallowRef, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import type { ChannelConfig, SelectionStats } from '@/types'
@@ -16,6 +16,7 @@ const props = defineProps<{
   getChartDataInRange: (start: number, end: number) => (Float64Array | number[])[] | null
   getSelectionStats: (start: number, end: number) => SelectionStats | null
   totalPoints: number
+  isDark: boolean
 }>()
 
 const emit = defineEmits<{
@@ -123,6 +124,12 @@ const createOptions = (width: number, height: number): uPlot.Options => {
     })
   }
 
+  // 根据主题设置颜色
+  const isDarkTheme = props.isDark
+  const axesColor = isDarkTheme ? '#888' : '#333'
+  const gridColor = isDarkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+  const ticksColor = isDarkTheme ? '#666' : '#888'
+
   return {
     width,
     height,
@@ -137,16 +144,16 @@ const createOptions = (width: number, height: number): uPlot.Options => {
     },
     axes: [
       {
-        stroke: '#888',
-        grid: { stroke: 'rgba(255,255,255,0.1)', width: 1 },
-        ticks: { stroke: '#666', width: 1 },
+        stroke: axesColor,
+        grid: { stroke: gridColor, width: 1 },
+        ticks: { stroke: ticksColor, width: 1 },
         font: '11px system-ui',
         labelFont: '12px system-ui'
       },
       {
-        stroke: '#888',
-        grid: { stroke: 'rgba(255,255,255,0.1)', width: 1 },
-        ticks: { stroke: '#666', width: 1 },
+        stroke: axesColor,
+        grid: { stroke: gridColor, width: 1 },
+        ticks: { stroke: ticksColor, width: 1 },
         font: '11px system-ui',
         labelFont: '12px system-ui'
       }
@@ -370,6 +377,16 @@ watch(() => props.channelCount, (newCount, oldCount) => {
   }
 })
 
+// 监听主题变化
+watch(() => props.isDark, async () => {
+  // 主题变化时重新创建图表以应用新颜色
+  if (chart.value) {
+    destroyChart()
+    await initChart()
+    rafId = requestAnimationFrame(updateChart)
+  }
+})
+
 // 监听通道配置变化（系数等），更新选区统计
 watch(() => props.channels, () => {
   if (isZoomed.value && zoomRange.value) {
@@ -425,11 +442,11 @@ defineExpose({
 </script>
 
 <template>
-  <div class="w-full h-full bg-gray-800 rounded-lg overflow-hidden relative">
+  <div :class="['w-full h-full rounded-lg overflow-hidden relative', isDark ? 'bg-gray-800' : 'bg-white']">
     <!-- 图表容器 -->
     <div
       ref="chartContainer"
-      class="w-full h-full"
+      :class="['w-full h-full', isDark ? 'dark-chart' : 'light-chart']"
     ></div>
 
     <!-- 工具栏 -->
@@ -454,7 +471,7 @@ defineExpose({
       <!-- 数据量提示 -->
       <div
         v-if="totalPoints > 100000"
-        class="bg-yellow-600 text-white text-xs px-2 py-1 rounded"
+        :class="['text-xs px-2 py-1 rounded', isDark ? 'bg-yellow-600 text-white' : 'bg-yellow-200 text-yellow-800']"
         title="大数据量模式：已启用智能降采样"
       >
         {{ (totalPoints / 1000).toFixed(0) }}K 点
@@ -465,8 +482,7 @@ defineExpose({
     <div
       v-if="selectionStats"
       ref="panelRef"
-      class="absolute bg-gray-900/95 backdrop-blur rounded-lg p-3 z-10 border border-gray-700 max-h-[80%] overflow-y-auto shadow-xl"
-      :class="{ 'cursor-grabbing': isDragging }"
+      :class="['absolute backdrop-blur rounded-lg p-3 z-10 border max-h-[80%] overflow-y-auto shadow-xl', isDark ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-gray-300', { 'cursor-grabbing': isDragging }]"
       :style="{
         left: panelPosition.x + 'px',
         top: panelPosition.y + 'px',
@@ -481,13 +497,13 @@ defineExpose({
         @mousedown="startDrag"
       >
         <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+          <svg :class="['w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-400']" fill="currentColor" viewBox="0 0 24 24">
             <path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
           </svg>
-          <h3 class="text-sm font-semibold text-white">选区数据分析</h3>
+          <h3 :class="['text-sm font-semibold', isDark ? 'text-white' : 'text-gray-900']">选区数据分析</h3>
         </div>
         <button
-          class="text-gray-400 hover:text-white p-1"
+          :class="['p-1', isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900']"
           @click.stop="resetZoom"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -499,50 +515,50 @@ defineExpose({
       <!-- 基本信息 - 紧凑布局 -->
       <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
         <div>
-          <span class="text-gray-500">采样点</span>
-          <div class="text-white font-mono">{{ selectionStats.pointCount?.toLocaleString() }}</div>
+          <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">采样点</span>
+          <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ selectionStats.pointCount?.toLocaleString() }}</div>
         </div>
         <div>
-          <span class="text-gray-500">时长</span>
-          <div class="text-white font-mono">{{ formatNumber(selectionStats.duration, 1) }}ms</div>
+          <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">时长</span>
+          <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ formatNumber(selectionStats.duration, 1) }}ms</div>
         </div>
         <div>
-          <span class="text-gray-500">采样率</span>
-          <div class="text-white font-mono">{{ formatNumber(selectionStats.frequency, 0) }}Hz</div>
+          <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">采样率</span>
+          <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ formatNumber(selectionStats.frequency, 0) }}Hz</div>
         </div>
         <div>
-          <span class="text-gray-500">范围</span>
-          <div class="text-white font-mono text-xs">{{ selectionStats.startIndex }}-{{ selectionStats.endIndex }}</div>
+          <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">范围</span>
+          <div :class="['font-mono text-xs', isDark ? 'text-white' : 'text-gray-900']">{{ selectionStats.startIndex }}-{{ selectionStats.endIndex }}</div>
         </div>
       </div>
 
       <!-- 通道统计 - 垂直堆叠 -->
-      <div class="border-t border-gray-700 pt-2 space-y-2">
+      <div :class="['border-t pt-2 space-y-2', isDark ? 'border-gray-700' : 'border-gray-300']">
         <div
           v-for="ch in selectionStats.channels"
           :key="ch.id"
-          class="bg-gray-800 rounded p-2"
+          :class="['rounded p-2', isDark ? 'bg-gray-800' : 'bg-gray-100']"
         >
           <div class="flex items-center gap-1.5 mb-1.5">
             <span
               class="w-2 h-2 rounded-full flex-shrink-0"
               :style="{ backgroundColor: channels[ch.id]?.color || CHANNEL_COLORS[ch.id % CHANNEL_COLORS.length] }"
             ></span>
-            <span class="text-xs text-gray-300 font-medium truncate">
+            <span :class="['text-xs font-medium truncate', isDark ? 'text-gray-300' : 'text-gray-700']">
               {{ channels[ch.id]?.name || `通道 ${ch.id + 1}` }}
             </span>
           </div>
           <div class="grid grid-cols-3 gap-2 text-xs">
             <div>
-              <div class="text-gray-600">最小</div>
+              <div :class="isDark ? 'text-gray-600' : 'text-gray-400'">最小</div>
               <div class="text-green-400 font-mono">{{ formatNumber(ch.min) }}</div>
             </div>
             <div>
-              <div class="text-gray-600">最大</div>
+              <div :class="isDark ? 'text-gray-600' : 'text-gray-400'">最大</div>
               <div class="text-red-400 font-mono">{{ formatNumber(ch.max) }}</div>
             </div>
             <div>
-              <div class="text-gray-600">平均</div>
+              <div :class="isDark ? 'text-gray-600' : 'text-gray-400'">平均</div>
               <div class="text-blue-400 font-mono">{{ formatNumber(ch.avg) }}</div>
             </div>
           </div>
@@ -555,20 +571,20 @@ defineExpose({
       v-if="totalPoints === 0"
       class="absolute inset-0 flex items-center justify-center pointer-events-none"
     >
-      <div class="text-gray-500 text-center">
+      <div :class="['text-center', isDark ? 'text-gray-500' : 'text-gray-400']">
         <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
         <p>等待数据...</p>
         <p class="text-sm mt-2">请连接设备或导入数据文件</p>
-        <p class="text-xs mt-3 text-gray-600">提示: 框选图表区域可进行缩放和数据分析</p>
+        <p :class="['text-xs mt-3', isDark ? 'text-gray-600' : 'text-gray-500']">提示: 框选图表区域可进行缩放和数据分析</p>
       </div>
     </div>
 
     <!-- 操作提示 -->
     <div
       v-if="totalPoints > 0 && !selectionStats"
-      class="absolute bottom-2 left-2 text-xs text-gray-500"
+      :class="['absolute bottom-2 left-2 text-xs', isDark ? 'text-gray-500' : 'text-gray-400']"
     >
       拖拽框选区域进行缩放和数据分析
     </div>
@@ -580,33 +596,66 @@ defineExpose({
   width: 100% !important;
 }
 
-:deep(.u-wrap) {
-  background: #1f2937;
+/* 暗色模式样式 */
+.dark-chart :deep(.u-wrap) {
+  background: #1f2937 !important;
 }
 
-:deep(.u-legend) {
+.dark-chart :deep(.u-legend) {
   font-size: 12px;
   padding: 8px;
-  background: rgba(31, 41, 55, 0.9);
+  background: rgba(31, 41, 55, 0.9) !important;
   border-radius: 4px;
 }
 
-:deep(.u-legend th) {
+.dark-chart :deep(.u-legend th) {
   font-weight: normal;
   color: #9ca3af;
 }
 
-:deep(.u-legend td) {
+.dark-chart :deep(.u-legend td) {
   color: #e5e7eb;
 }
 
-:deep(.u-cursor-x),
-:deep(.u-cursor-y) {
-  border-color: rgba(255, 255, 255, 0.3);
+.dark-chart :deep(.u-cursor-x),
+.dark-chart :deep(.u-cursor-y) {
+  border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
-:deep(.u-select) {
+.dark-chart :deep(.u-select) {
   background: rgba(59, 130, 246, 0.2) !important;
   border: 1px solid rgba(59, 130, 246, 0.5) !important;
+}
+
+/* 亮色模式样式 */
+.light-chart :deep(.u-wrap) {
+  background: #ffffff !important;
+}
+
+.light-chart :deep(.u-legend) {
+  font-size: 12px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+.light-chart :deep(.u-legend th) {
+  font-weight: normal;
+  color: #6b7280;
+}
+
+.light-chart :deep(.u-legend td) {
+  color: #374151;
+}
+
+.light-chart :deep(.u-cursor-x),
+.light-chart :deep(.u-cursor-y) {
+  border-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+.light-chart :deep(.u-select) {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
 }
 </style>

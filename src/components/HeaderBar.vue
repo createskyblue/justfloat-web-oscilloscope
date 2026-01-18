@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import type { ConnectionStatus, ConnectionType } from '@/types'
 import { CONNECTION_TYPE_OPTIONS, BAUD_RATES } from '@/types'
 
@@ -11,6 +11,7 @@ const props = defineProps<{
   btServiceUUID: string
   btCharacteristicUUID: string
   baudRate: number
+  isDark: boolean
 }>()
 
 const emit = defineEmits<{
@@ -18,6 +19,7 @@ const emit = defineEmits<{
   clear: []
   export: []
   import: []
+  toggleTheme: []
   'update:connectionType': [value: ConnectionType]
   'update:wsUrl': [value: string]
   'update:btServiceUUID': [value: string]
@@ -82,21 +84,25 @@ const statusColor = {
   connected: 'bg-green-500',
   error: 'bg-red-500'
 }
+
+const themeIcon = computed(() => {
+  return props.isDark ? '☀️' : '🌙'
+})
 </script>
 
 <template>
-  <header class="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+  <header :class="['border-b px-4 py-3 flex items-center justify-between', isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-300']">
     <!-- 标题 -->
     <div class="flex items-center gap-3">
-      <h1 class="text-xl font-semibold text-white">JustFloat 示波器</h1>
-      <span class="text-xs text-gray-500">Web Serial Protocol Analyzer</span>
+      <h1 :class="['text-xl font-semibold', isDark ? 'text-white' : 'text-gray-900']">JustFloat 示波器</h1>
+      <span :class="['text-xs', isDark ? 'text-gray-500' : 'text-gray-400']">Web Serial Protocol Analyzer</span>
     </div>
 
     <!-- 工具按钮组 -->
     <div class="flex items-center gap-2">
       <!-- 导入 -->
       <button
-        class="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+        :class="['px-3 py-1.5 text-sm rounded transition-colors', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
         @click="emit('import')"
       >
         导入
@@ -104,7 +110,7 @@ const statusColor = {
 
       <!-- 导出 -->
       <button
-        class="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+        :class="['px-3 py-1.5 text-sm rounded transition-colors', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
         @click="emit('export')"
       >
         导出
@@ -112,18 +118,27 @@ const statusColor = {
 
       <!-- 清除 -->
       <button
-        class="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+        :class="['px-3 py-1.5 text-sm rounded transition-colors', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
         @click="emit('clear')"
       >
         清除
       </button>
 
-      <div class="w-px h-6 bg-gray-600 mx-2"></div>
+      <!-- 主题切换按钮 -->
+      <button
+        :class="['px-3 py-1.5 text-sm rounded transition-colors', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
+        @click="emit('toggleTheme')"
+        title="切换主题"
+      >
+        {{ themeIcon }}
+      </button>
+
+      <div :class="['w-px h-6 mx-2', isDark ? 'bg-gray-600' : 'bg-gray-400']"></div>
 
       <!-- 连接方式选择 -->
       <select
         :value="connectionType"
-        class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+        :class="['px-2 py-1.5 text-sm rounded border focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-700 border-gray-300']"
         :disabled="status === 'connected' || status === 'connecting'"
         @change="handleConnectionTypeChange"
       >
@@ -145,7 +160,7 @@ const statusColor = {
           min="300"
           max="4000000"
           placeholder="115200"
-          class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-28"
+          :class="['px-2 py-1.5 text-sm rounded border focus:outline-none focus:border-blue-500 w-28', isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-700 border-gray-300']"
           :disabled="status === 'connected' || status === 'connecting'"
           @blur="updateBaudRate"
           @keyup.enter="updateBaudRate"
@@ -153,7 +168,7 @@ const statusColor = {
         <datalist id="baudRateList">
           <option v-for="rate in BAUD_RATES" :key="rate" :value="rate" />
         </datalist>
-        <span class="text-xs text-gray-500">bps</span>
+        <span :class="['text-xs', isDark ? 'text-gray-500' : 'text-gray-400']">bps</span>
       </div>
 
       <!-- WebSocket 地址输入 -->
@@ -162,7 +177,7 @@ const statusColor = {
         v-model="localWsUrl"
         type="text"
         placeholder="ws://localhost:8080"
-        class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-48"
+        :class="['px-2 py-1.5 text-sm rounded border focus:outline-none focus:border-blue-500 w-48', isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-700 border-gray-300']"
         :disabled="status === 'connected' || status === 'connecting'"
         @blur="updateWsUrl"
         @keyup.enter="updateWsUrl"
@@ -174,7 +189,7 @@ const statusColor = {
           v-model="localBtServiceUUID"
           type="text"
           placeholder="服务 UUID (如 ffe0)"
-          class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-36"
+          :class="['px-2 py-1.5 text-sm rounded border focus:outline-none focus:border-blue-500 w-36', isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-700 border-gray-300']"
           :disabled="status === 'connected' || status === 'connecting'"
           @blur="updateBtServiceUUID"
           @keyup.enter="updateBtServiceUUID"
@@ -183,14 +198,14 @@ const statusColor = {
           v-model="localBtCharacteristicUUID"
           type="text"
           placeholder="特征 UUID (如 ffe1)"
-          class="px-2 py-1.5 text-sm bg-gray-700 text-gray-300 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-36"
+          :class="['px-2 py-1.5 text-sm rounded border focus:outline-none focus:border-blue-500 w-36', isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-700 border-gray-300']"
           :disabled="status === 'connected' || status === 'connecting'"
           @blur="updateBtCharacteristicUUID"
           @keyup.enter="updateBtCharacteristicUUID"
         />
       </template>
 
-      <div class="w-px h-6 bg-gray-600 mx-2"></div>
+      <div :class="['w-px h-6 mx-2', isDark ? 'bg-gray-600' : 'bg-gray-400']"></div>
 
       <!-- 连接状态 -->
       <div class="flex items-center gap-2">
@@ -198,7 +213,7 @@ const statusColor = {
           class="w-2 h-2 rounded-full"
           :class="statusColor[status]"
         ></span>
-        <span class="text-sm text-gray-400">{{ statusText[status] }}</span>
+        <span :class="['text-sm', isDark ? 'text-gray-400' : 'text-gray-600']">{{ statusText[status] }}</span>
       </div>
 
       <!-- 连接按钮 -->
@@ -214,7 +229,7 @@ const statusColor = {
         {{ status === 'connected' ? '断开' : status === 'connecting' ? '连接中...' : '连接' }}
       </button>
 
-      <span v-else class="text-sm text-red-400">
+      <span v-else :class="['text-sm', isDark ? 'text-red-400' : 'text-red-600']">
         浏览器不支持 Web Serial API
       </span>
     </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted, provide, computed } from 'vue'
+import { ref, watch, onUnmounted, provide, computed, onMounted } from 'vue'
 import HeaderBar from './components/HeaderBar.vue'
 import SidePanel from './components/SidePanel.vue'
 import OscilloscopeChart from './components/OscilloscopeChart.vue'
@@ -30,6 +30,30 @@ const channelConfig = useChannelConfig()
 if (savedConfig.channels.length > 0) {
   channelConfig.loadChannels(savedConfig.channels)
 }
+
+// 主题状态
+const isDark = ref(savedConfig.isDark ?? true)
+
+// 初始化主题
+onMounted(() => {
+  updateThemeClass()
+})
+
+// 更新主题类
+const updateThemeClass = () => {
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+}
+
+// 切换主题
+const toggleTheme = () => {
+  isDark.value = !isDark.value
+  updateThemeClass()
+}
+
 
 // 配置状态
 const baudRate = ref(savedConfig.baudRate)
@@ -116,7 +140,8 @@ watch([baudRate, bufferSize, protocol, connectionType, wsUrl, btServiceUUID, btC
     wsUrl: wsUrl.value,
     btServiceUUID: btServiceUUID.value,
     btCharacteristicUUID: btCharacteristicUUID.value,
-    channels: channelConfig.channels.value
+    channels: channelConfig.channels.value,
+    isDark: isDark.value
   }
   saveConfig(config)
 }, { deep: true })
@@ -215,7 +240,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-gray-900">
+  <div :class="['h-screen flex flex-col', isDark ? 'bg-gray-900' : 'bg-white']">
     <!-- 顶部导航栏 -->
     <HeaderBar
       :status="currentConnection.status.value"
@@ -225,10 +250,12 @@ onUnmounted(() => {
       :bt-service-u-u-i-d="btServiceUUID"
       :bt-characteristic-u-u-i-d="btCharacteristicUUID"
       :baud-rate="baudRate"
+      :is-dark="isDark"
       @connect="handleConnect"
       @clear="handleClear"
       @export="handleExport"
       @import="handleImport"
+      @toggle-theme="toggleTheme"
       @update:connection-type="connectionType = $event"
       @update:ws-url="wsUrl = $event"
       @update:bt-service-u-u-i-d="btServiceUUID = $event"
@@ -247,6 +274,7 @@ onUnmounted(() => {
         :cursor-values="cursorValues"
         :cursor-index="cursorIndex"
         :get-channel-stats="(id: number) => buffer.getChannelStats(id, channelConfig.channels.value[id]?.coefficient ?? 1)"
+        :is-dark="isDark"
         @update-channel="channelConfig.updateChannel"
         @toggle-visibility="channelConfig.toggleVisibility"
       />
@@ -263,6 +291,7 @@ onUnmounted(() => {
           :get-chart-data="() => buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :get-chart-data-in-range="(start: number, end: number) => buffer.getChartDataInRange(start, end, parser.channelCount.value, channelConfig.getCoefficients())"
           :get-selection-stats="(start: number, end: number) => buffer.getSelectionStats(start, end, parser.channelCount.value, channelConfig.getCoefficients())"
+          :is-dark="isDark"
           @cursor-values="handleCursorValues"
         />
       </div>
@@ -276,6 +305,7 @@ onUnmounted(() => {
       :total-points="buffer.totalPoints.value"
       :frame-count="parser.frameCount.value"
       :channel-count="parser.channelCount.value"
+      :is-dark="isDark"
     />
   </div>
 </template>

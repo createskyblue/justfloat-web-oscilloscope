@@ -14,11 +14,12 @@
 }
 
 body {
-  @apply bg-gray-900 text-gray-100;
+  @apply dark:bg-gray-900 dark:text-gray-100 bg-white text-gray-900;
   font-family: system-ui, -apple-system, sans-serif;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 #app {
@@ -31,29 +32,49 @@ body {
 }
 
 .u-wrap {
-  @apply bg-gray-800 rounded-lg;
+  @apply dark:bg-gray-800 bg-white rounded-lg;
+  transition: background-color 0.3s;
 }
 
 .u-legend {
-  @apply text-sm text-gray-300;
+  @apply text-sm dark:text-gray-300 text-gray-700;
+  transition: color 0.3s;
 }
 
 .u-legend th {
   @apply font-normal;
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - 暗色模式 */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
+
+/* 滚动条样式 - 亮色模式 */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-800;
+  @apply bg-gray-200;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-600 rounded;
+  @apply bg-gray-400 rounded;
 }
 
 ::-webkit-scrollbar-thumb:hover {
