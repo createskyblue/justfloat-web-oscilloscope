@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { ref, shallowRef, watch, onMounted, onUnmounted, computed } from 'vue'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import type { ChannelConfig, SelectionStats } from '@/types'
