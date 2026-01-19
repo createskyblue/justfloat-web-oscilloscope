@@ -1,12 +1,12 @@
 # Web 示波器：实时解析 JustFloat 与 FireWater 协议，支持串口（Web Serial）、蓝牙（Web Bluetooth）和 WebSocket 数据源
 
-支持 8 通道、100kHz 实时刷新的 Web 示波器，专为解析 JustFloat 与 FireWater 二进制协议设计。无需安装软件，在浏览器中即可通过 USB 串口（Web Serial）、BLE 蓝牙（Web Bluetooth） 或 WebSocket 接入设备，实时捕获并可视化高频传感器或嵌入式系统数据。所有波形渲染与协议解析均在客户端完成，确保低延迟与数据隐私。适用于飞控调试、电机控制、多轴传感器分析等对采样率和通道数有较高要求的场景。基于现代 Web 技术构建，兼容主流桌面及移动端浏览器，开源免费，即开即用。
+支持 8 通道、100kHz 实时刷新的 Web 示波器，专为解析 JustFloat 与 FireWater 二进制协议设计。无需安装软件，在浏览器中即可通过 USB 串口（Web Serial）、BLE 蓝牙（Web Bluetooth） 或 WebSocket 接入设备，实时捕获并可视化高频传感器或嵌入式系统数据。所有波形渲染与协议解析均在客户端完成，确保低延迟与数据隐私。适用于飞控调试、电机控制、多轴传感器分析等对速率和通道数有较高要求的场景。基于现代 Web 技术构建，兼容主流桌面及移动端浏览器，开源免费，即开即用。
 
 An 8-channel Web oscilloscope with real-time 100 kHz waveform refresh, designed specifically for parsing JustFloat and FireWater binary protocols. This open-source tool runs entirely in the browser—no installation required—and supports three flexible data sources: USB serial (via Web Serial API), BLE devices (via Web Bluetooth API), and remote streams over WebSocket.
 
 ![JustFloat 数据解析](./img/PixPin_2026-01-08_09-17-04.png)
-![JustFloat 1通道 100+KSa/S](./img/PixPin_2026-01-09_12-06-23.png)
-![JustFloat 1通道 100+KSa/S 统计分析](./img/PixPin_2026-01-09_12-06-41.png)
+![JustFloat 1通道 100+KHz](./img/PixPin_2026-01-09_12-06-23.png)
+![JustFloat 1通道 100+KHz 统计分析](./img/PixPin_2026-01-09_12-06-41.png)
 ![FireWater 数据解析](./img/PixPin_2026-01-09_04-00-32.png)
 
 ## 功能特性
@@ -22,7 +22,7 @@ An 8-channel Web oscilloscope with real-time 100 kHz waveform refresh, designed 
 - 实时显示通道统计数据（最小值、最大值、平均值、当前值）
 - 可配置的缓冲区大小（最小1000点，最大1000000点）
 - 支持多种波特率（默认115200）
-- 性能优化：JustFloat模式下 1个通道 100KSa/s 运行流畅！
+- 性能优化：JustFloat模式下 1个通道 100KHz 运行流畅！
 
 ## 连接方式
 
@@ -55,9 +55,9 @@ An 8-channel Web oscilloscope with real-time 100 kHz waveform refresh, designed 
 
 ## 性能特点
 
-- **高采样率支持**：支持高达100KSa/s的采样率
+- **高速率支持**：支持高达100KHz的速率
 - **高效数据解析**：使用批处理机制提高解析效率
-- **智能渲染**：根据数据量和采样率动态调整刷新频率
+- **智能渲染**：根据数据量和速率动态调整刷新频率
 - **内存管理**：自动限制缓冲区大小，避免内存溢出
 - **响应式界面**：使用uPlot图表库实现高性能数据可视化
 
@@ -104,7 +104,7 @@ An 8-channel Web oscilloscope with real-time 100 kHz waveform refresh, designed 
 ## 功能操作
 
 - **缩放功能**：在图表上拖拽鼠标创建选区，可以放大查看特定数据段
-- **数据统计**：选区后会显示详细的统计数据（采样点数、时长、采样率等）
+- **数据统计**：选区后会显示详细的统计数据（采样点数、时长、速率等）
 - **通道控制**：可以在侧边栏单独控制每个通道的显示/隐藏
 - **实时光标**：移动鼠标可以查看任意点的具体数值
 - **数据导出**：可将当前显示的数据导出为JSON文件
