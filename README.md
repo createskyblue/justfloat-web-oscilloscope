@@ -1,6 +1,8 @@
-# JustFloat & FireWater Web 协议分析仪
+# Web 示波器：实时解析 JustFloat 与 FireWater 协议，支持串口（Web Serial）、蓝牙（Web Bluetooth）和 WebSocket 数据源
 
-基于Web的示波器应用，用于实时显示和分析来自JustFloat协议和FireWater协议设备的数据。通过Web Serial API或WebSocket与设备通信，解析数据并以图表形式实时展示。
+支持 8 通道、100kHz 实时刷新的 Web 示波器，专为解析 JustFloat 与 FireWater 二进制协议设计。无需安装软件，在浏览器中即可通过 USB 串口（Web Serial）、BLE 蓝牙（Web Bluetooth） 或 WebSocket 接入设备，实时捕获并可视化高频传感器或嵌入式系统数据。所有波形渲染与协议解析均在客户端完成，确保低延迟与数据隐私。适用于飞控调试、电机控制、多轴传感器分析等对采样率和通道数有较高要求的场景。基于现代 Web 技术构建，兼容主流桌面及移动端浏览器，开源免费，即开即用。
+
+An 8-channel Web oscilloscope with real-time 100 kHz waveform refresh, designed specifically for parsing JustFloat and FireWater binary protocols. This open-source tool runs entirely in the browser—no installation required—and supports three flexible data sources: USB serial (via Web Serial API), BLE devices (via Web Bluetooth API), and remote streams over WebSocket.
 
 ![JustFloat 数据解析](./img/PixPin_2026-01-08_09-17-04.png)
 ![JustFloat 1通道 100+KSa/S](./img/PixPin_2026-01-09_12-06-23.png)
