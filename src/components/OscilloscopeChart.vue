@@ -85,22 +85,25 @@ let isUpdating = false
 let resizeObserver: ResizeObserver | null = null
 let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 
-// 根据数据量和采样率调整刷新间隔
+// 根据数据量和采样率调整刷新间隔（目标：至少30fps，即33ms间隔）
 const adjustedInterval = computed(() => {
   const points = props.totalPoints
   const rate = props.sampleRate
 
-  // 高采样率(>7.5K)时，固定1秒刷新一次以减少渲染压力
-  if (rate > 7500) {
-    return 1000
+  // 基础刷新间隔，保证至少30fps
+  const minInterval = 33 // 约30fps
+
+  // 超高采样率且大数据量时，适当降低刷新率但仍保持可接受范围
+  if (rate > 7500 && points > 500000) {
+    return 50 // 20fps，仍保持较好流畅度
   }
 
-  // 正常采样率时，根据数据量动态调整
-  if (points > 500000) return 500
-  if (points > 200000) return 200
-  if (points > 100000) return 100
-  if (points > 50000) return 50
-  return 32
+  // 正常采样率时，根据数据量动态调整（保证流畅度优先）
+  if (points > 500000) return 40
+  if (points > 200000) return 35
+  if (points > 100000) return minInterval + 2
+  if (points > 50000) return minInterval + 1
+  return minInterval
 })
 
 // 创建图表配置
@@ -447,6 +450,8 @@ defineExpose({
     <div
       ref="chartContainer"
       :class="['w-full h-full', isDark ? 'dark-chart' : 'light-chart']"
+      @dblclick="isZoomed && resetZoom()"
+      title="双击可重置缩放"
     ></div>
 
     <!-- 工具栏 -->
