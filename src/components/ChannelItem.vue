@@ -86,8 +86,8 @@ const selectColor = (color: string) => {
   <div
     class="rounded-lg border"
     :class="channel.visible
-      ? isDark ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-100'
-      : isDark ? 'border-gray-700 bg-gray-800/50 opacity-50' : 'border-gray-200 bg-gray-50 opacity-50'"
+      ? isDark ? 'border-gray-600 bg-gray-700/50' : 'border-gray-300 bg-gray-50 shadow-sm'
+      : isDark ? 'border-gray-700 bg-gray-800/50 opacity-50' : 'border-gray-300 bg-gray-100 opacity-60'"
   >
     <!-- 通道头部 -->
     <div
@@ -106,7 +106,7 @@ const selectColor = (color: string) => {
         <!-- 颜色选择器 -->
         <div
           v-if="showColorPicker"
-          :class="['absolute left-0 top-5 border rounded-lg p-2 z-20 shadow-xl', isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300']"
+          :class="['absolute left-0 top-5 border rounded-lg p-2 z-20 shadow-xl', isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-400 shadow-lg']"
           @click.stop
         >
           <div class="grid grid-cols-4 gap-1.5">
@@ -125,13 +125,13 @@ const selectColor = (color: string) => {
       <!-- 通道名称 -->
       <span :class="['flex-1 text-sm truncate', isDark ? 'text-white' : 'text-gray-900']">
         {{ channel.name }}
-        <span v-if="channel.unit" :class="['text-xs ml-1', isDark ? 'text-gray-400' : 'text-gray-500']">({{ channel.unit }})</span>
+        <span v-if="channel.unit" :class="['text-xs ml-1', isDark ? 'text-gray-400' : 'text-gray-600']">({{ channel.unit }})</span>
       </span>
 
       <!-- 当前值 -->
-      <span v-if="stats" :class="['text-sm font-mono tabular-nums', isDark ? 'text-gray-200' : 'text-gray-700']">
+      <span v-if="stats" :class="['text-sm font-mono tabular-nums', isDark ? 'text-gray-200' : 'text-gray-800']">
         {{ formatNumber(stats.current, 3) }}
-        <span v-if="channel.unit" :class="['text-xs', isDark ? 'text-gray-500' : 'text-gray-400']">{{ channel.unit }}</span>
+        <span v-if="channel.unit" :class="['text-xs', isDark ? 'text-gray-500' : 'text-gray-600']">{{ channel.unit }}</span>
       </span>
 
       <!-- 可见性开关 -->
@@ -152,7 +152,7 @@ const selectColor = (color: string) => {
 
       <!-- 展开箭头 -->
       <svg
-        :class="['w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-400', { 'rotate-180': isExpanded }]"
+        :class="['w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-500', { 'rotate-180': isExpanded }]"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -164,32 +164,32 @@ const selectColor = (color: string) => {
     <!-- 实时统计信息（未展开时显示简化版） -->
     <div v-if="stats && !isExpanded" class="px-3 pb-2">
       <!-- 光标值显示 -->
-      <div v-if="cursorValue != null" :class="['mb-2 flex items-center justify-between text-xs rounded px-2 py-1', isDark ? 'bg-gray-800/50' : 'bg-gray-200']">
+      <div v-if="cursorValue != null" :class="['mb-2 flex items-center justify-between text-xs rounded px-2 py-1', isDark ? 'bg-gray-800/50' : 'bg-yellow-50 border border-yellow-200']">
         <span class="text-yellow-500">
           <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2z" />
           </svg>
           光标 [{{ cursorIndex }}]
         </span>
-        <span class="text-yellow-400 font-mono tabular-nums">{{ formatNumber(cursorValue) }}</span>
+        <span class="text-yellow-600 font-mono tabular-nums">{{ formatNumber(cursorValue) }}</span>
       </div>
 
       <div class="grid grid-cols-4 gap-1 text-xs">
         <div class="text-center">
-          <div :class="isDark ? 'text-gray-500' : 'text-gray-400'">最小</div>
-          <div class="text-green-400 font-mono tabular-nums">{{ formatNumber(stats.min, 3) }}</div>
+          <div :class="isDark ? 'text-gray-500' : 'text-gray-600'">最小</div>
+          <div class="text-green-500 font-mono tabular-nums">{{ formatNumber(stats.min, 3) }}</div>
         </div>
         <div class="text-center">
-          <div :class="isDark ? 'text-gray-500' : 'text-gray-400'">最大</div>
-          <div class="text-red-400 font-mono tabular-nums">{{ formatNumber(stats.max, 3) }}</div>
+          <div :class="isDark ? 'text-gray-500' : 'text-gray-600'">最大</div>
+          <div class="text-red-500 font-mono tabular-nums">{{ formatNumber(stats.max, 3) }}</div>
         </div>
         <div class="text-center">
-          <div :class="isDark ? 'text-gray-500' : 'text-gray-400'">平均</div>
-          <div class="text-blue-400 font-mono tabular-nums">{{ formatNumber(stats.avg, 3) }}</div>
+          <div :class="isDark ? 'text-gray-500' : 'text-gray-600'">平均</div>
+          <div class="text-blue-500 font-mono tabular-nums">{{ formatNumber(stats.avg, 3) }}</div>
         </div>
         <div class="text-center">
-          <div :class="isDark ? 'text-gray-500' : 'text-gray-400'">峰峰</div>
-          <div class="text-purple-400 font-mono tabular-nums">{{ formatNumber(peakToPeak, 3) }}</div>
+          <div :class="isDark ? 'text-gray-500' : 'text-gray-600'">峰峰</div>
+          <div class="text-purple-500 font-mono tabular-nums">{{ formatNumber(peakToPeak, 3) }}</div>
         </div>
       </div>
     </div>
@@ -198,11 +198,11 @@ const selectColor = (color: string) => {
     <div v-if="isExpanded" :class="['px-3 pb-3 pt-1 space-y-3 border-t', isDark ? 'border-gray-700' : 'border-gray-300']">
       <!-- 名称设置 -->
       <div>
-        <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-400']">通道名称</label>
+        <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-600']">通道名称</label>
         <input
           type="text"
           v-model="localName"
-          :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
+          :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-400 text-gray-900']"
           placeholder="输入通道名称"
           @focus="isEditingName = true"
           @blur="submitName"
@@ -213,24 +213,24 @@ const selectColor = (color: string) => {
       <!-- 单位和系数 -->
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-400']">单位</label>
+          <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-600']">单位</label>
           <input
             type="text"
             v-model="localUnit"
             placeholder="V, A, °C..."
-            :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
+            :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-400 text-gray-900']"
             @focus="isEditingUnit = true"
             @blur="submitUnit"
             @keyup.enter="($event.target as HTMLInputElement).blur()"
           />
         </div>
         <div>
-          <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-400']">系数</label>
+          <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-600']">系数</label>
           <input
             type="text"
             v-model="localCoefficient"
             placeholder="1.0"
-            :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
+            :class="['w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-400 text-gray-900']"
             @focus="isEditingCoefficient = true"
             @blur="submitCoefficient"
             @keyup.enter="($event.target as HTMLInputElement).blur()"
@@ -240,7 +240,7 @@ const selectColor = (color: string) => {
 
       <!-- 详细统计信息 -->
       <div v-if="stats" :class="['pt-2 border-t', isDark ? 'border-gray-700' : 'border-gray-300']">
-        <div :class="['text-xs mb-2', isDark ? 'text-gray-500' : 'text-gray-400']">实时统计</div>
+        <div :class="['text-xs mb-2', isDark ? 'text-gray-500' : 'text-gray-600']">实时统计</div>
 
         <!-- 光标值显示 -->
         <div v-if="cursorValue != null" :class="['mb-2 flex items-center justify-between text-xs rounded px-2 py-1 border', isDark ? 'bg-yellow-900/30 border-yellow-700/30' : 'bg-yellow-50 border-yellow-300']">
@@ -250,29 +250,29 @@ const selectColor = (color: string) => {
             </svg>
             光标值 [{{ cursorIndex }}]:
           </span>
-          <span class="text-yellow-400 font-mono tabular-nums">{{ formatNumber(cursorValue) }}</span>
+          <span class="text-yellow-600 font-mono tabular-nums">{{ formatNumber(cursorValue) }}</span>
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div class="flex justify-between">
-            <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">最小值:</span>
-            <span class="text-green-400 font-mono tabular-nums">{{ formatNumber(stats.min) }}</span>
+            <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">最小值:</span>
+            <span class="text-green-500 font-mono tabular-nums">{{ formatNumber(stats.min) }}</span>
           </div>
           <div class="flex justify-between">
-            <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">最大值:</span>
-            <span class="text-red-400 font-mono tabular-nums">{{ formatNumber(stats.max) }}</span>
+            <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">最大值:</span>
+            <span class="text-red-500 font-mono tabular-nums">{{ formatNumber(stats.max) }}</span>
           </div>
           <div class="flex justify-between">
-            <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">平均值:</span>
-            <span class="text-blue-400 font-mono tabular-nums">{{ formatNumber(stats.avg) }}</span>
+            <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">平均值:</span>
+            <span class="text-blue-500 font-mono tabular-nums">{{ formatNumber(stats.avg) }}</span>
           </div>
           <div class="flex justify-between">
-            <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">当前值:</span>
+            <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">当前值:</span>
             <span :class="['font-mono tabular-nums', isDark ? 'text-white' : 'text-gray-900']">{{ formatNumber(stats.current) }}</span>
           </div>
           <div :class="['flex justify-between col-span-2 pt-1 border-t mt-1', isDark ? 'border-gray-700' : 'border-gray-300']">
-            <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">峰峰值:</span>
-            <span class="text-purple-400 font-mono tabular-nums">{{ formatNumber(peakToPeak) }}</span>
+            <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">峰峰值:</span>
+            <span class="text-purple-500 font-mono tabular-nums">{{ formatNumber(peakToPeak) }}</span>
           </div>
         </div>
       </div>
@@ -282,14 +282,14 @@ const selectColor = (color: string) => {
         <button
           class="flex-1 px-2 py-1 text-xs rounded text-white"
           :class="channel.visible
-            ? isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-400 hover:bg-gray-500'
+            ? isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-500 hover:bg-gray-600'
             : 'bg-blue-600 hover:bg-blue-500'"
           @click="emit('toggleVisibility')"
         >
           {{ channel.visible ? '隐藏通道' : '显示通道' }}
         </button>
         <button
-          :class="['px-2 py-1 text-xs text-white rounded', isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-400 hover:bg-gray-500']"
+          :class="['px-2 py-1 text-xs text-white rounded', isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-500 hover:bg-gray-600']"
           @click="emit('update', {
             name: `通道 ${channel.id + 1}`,
             unit: '',

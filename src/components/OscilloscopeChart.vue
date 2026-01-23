@@ -487,7 +487,7 @@ defineExpose({
     <div
       v-if="selectionStats"
       ref="panelRef"
-      :class="['absolute backdrop-blur rounded-lg p-3 z-10 border max-h-[80%] overflow-y-auto shadow-xl', isDark ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-gray-300', { 'cursor-grabbing': isDragging }]"
+      :class="['absolute backdrop-blur rounded-lg p-3 z-10 border max-h-[80%] overflow-y-auto shadow-xl', isDark ? 'bg-gray-900/95 border-gray-700' : 'bg-white/98 border-gray-400 shadow-lg', { 'cursor-grabbing': isDragging }]"
       :style="{
         left: panelPosition.x + 'px',
         top: panelPosition.y + 'px',
@@ -502,13 +502,13 @@ defineExpose({
         @mousedown="startDrag"
       >
         <div class="flex items-center gap-2">
-          <svg :class="['w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-400']" fill="currentColor" viewBox="0 0 24 24">
+          <svg :class="['w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-600']" fill="currentColor" viewBox="0 0 24 24">
             <path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
           </svg>
           <h3 :class="['text-sm font-semibold', isDark ? 'text-white' : 'text-gray-900']">选区数据分析</h3>
         </div>
         <button
-          :class="['p-1', isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900']"
+          :class="['p-1', isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900']"
           @click.stop="resetZoom"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -520,19 +520,19 @@ defineExpose({
       <!-- 基本信息 - 紧凑布局 -->
       <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
         <div>
-          <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">采样点</span>
+          <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">采样点</span>
           <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ selectionStats.pointCount?.toLocaleString() }}</div>
         </div>
         <div>
-          <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">时长</span>
+          <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">时长</span>
           <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ formatTime(selectionStats.duration) }}</div>
         </div>
         <div>
-          <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">频率</span>
+          <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">频率</span>
           <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ formatNumber(selectionStats.frequency, 0) }}Hz</div>
         </div>
         <div>
-          <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">范围</span>
+          <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">范围</span>
           <div :class="['font-mono text-xs', isDark ? 'text-white' : 'text-gray-900']">{{ selectionStats.startIndex }}-{{ selectionStats.endIndex }}</div>
         </div>
       </div>
@@ -542,29 +542,29 @@ defineExpose({
         <div
           v-for="ch in selectionStats.channels"
           :key="ch.id"
-          :class="['rounded p-2', isDark ? 'bg-gray-800' : 'bg-gray-100']"
+          :class="['rounded p-2 border', isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-300 shadow-sm']"
         >
           <div class="flex items-center gap-1.5 mb-1.5">
             <span
               class="w-2 h-2 rounded-full flex-shrink-0"
               :style="{ backgroundColor: channels[ch.id]?.color || CHANNEL_COLORS[ch.id % CHANNEL_COLORS.length] }"
             ></span>
-            <span :class="['text-xs font-medium truncate', isDark ? 'text-gray-300' : 'text-gray-700']">
+            <span :class="['text-xs font-medium truncate', isDark ? 'text-gray-300' : 'text-gray-800']">
               {{ channels[ch.id]?.name || `通道 ${ch.id + 1}` }}
             </span>
           </div>
           <div class="grid grid-cols-3 gap-2 text-xs">
             <div>
-              <div :class="isDark ? 'text-gray-600' : 'text-gray-400'">最小</div>
-              <div class="text-green-400 font-mono">{{ formatNumber(ch.min) }}</div>
+              <div :class="isDark ? 'text-gray-600' : 'text-gray-600'">最小</div>
+              <div class="text-green-500 font-mono">{{ formatNumber(ch.min) }}</div>
             </div>
             <div>
-              <div :class="isDark ? 'text-gray-600' : 'text-gray-400'">最大</div>
-              <div class="text-red-400 font-mono">{{ formatNumber(ch.max) }}</div>
+              <div :class="isDark ? 'text-gray-600' : 'text-gray-600'">最大</div>
+              <div class="text-red-500 font-mono">{{ formatNumber(ch.max) }}</div>
             </div>
             <div>
-              <div :class="isDark ? 'text-gray-600' : 'text-gray-400'">平均</div>
-              <div class="text-blue-400 font-mono">{{ formatNumber(ch.avg) }}</div>
+              <div :class="isDark ? 'text-gray-600' : 'text-gray-600'">平均</div>
+              <div class="text-blue-500 font-mono">{{ formatNumber(ch.avg) }}</div>
             </div>
           </div>
         </div>

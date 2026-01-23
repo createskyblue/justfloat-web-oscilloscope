@@ -56,31 +56,31 @@ const getCursorValue = (channelId: number): number | null => {
 </script>
 
 <template>
-  <aside :class="['w-72 flex-shrink-0 border-r flex flex-col overflow-hidden', isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200']">
+  <aside :class="['w-72 flex-shrink-0 border-r flex flex-col overflow-hidden', isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300']">
     <!-- 连接配置 -->
-    <div :class="['p-4 border-b', isDark ? 'border-gray-700' : 'border-gray-200']">
-      <h2 :class="['text-sm font-semibold mb-3', isDark ? 'text-gray-400' : 'text-gray-600']">连接配置</h2>
+    <div :class="['p-4 border-b', isDark ? 'border-gray-700' : 'border-gray-300']">
+      <h2 :class="['text-sm font-semibold mb-3', isDark ? 'text-gray-400' : 'text-gray-700']">连接配置</h2>
 
       <!-- 协议选择 -->
       <div class="mb-3">
-        <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-400']">协议类型</label>
+        <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-600']">协议类型</label>
         <select
           :value="protocol"
-          :class="['w-full rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
+          :class="['w-full rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-400 text-gray-900']"
           @change="emit('update:protocol', ($event.target as HTMLSelectElement).value as ProtocolType)"
         >
           <option v-for="opt in PROTOCOL_OPTIONS" :key="opt.value" :value="opt.value">
             {{ opt.label }}
           </option>
         </select>
-        <div :class="['text-xs mt-1', isDark ? 'text-gray-600' : 'text-gray-400']">
+        <div :class="['text-xs mt-1', isDark ? 'text-gray-600' : 'text-gray-500']">
           {{ PROTOCOL_OPTIONS.find(o => o.value === protocol)?.description }}
         </div>
       </div>
 
       <!-- 缓冲区大小 -->
       <div>
-        <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-400']">
+        <label :class="['block text-xs mb-1', isDark ? 'text-gray-500' : 'text-gray-600']">
           缓冲区大小 ({{ MIN_BUFFER_SIZE.toLocaleString() }} - {{ MAX_BUFFER_SIZE.toLocaleString() }})
         </label>
         <input
@@ -89,7 +89,7 @@ const getCursorValue = (channelId: number): number | null => {
           :min="MIN_BUFFER_SIZE"
           :max="MAX_BUFFER_SIZE"
           step="1000"
-          :class="['w-full rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-300 text-gray-900']"
+          :class="['w-full rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500', isDark ? 'bg-gray-700 border border-gray-600 text-white' : 'bg-white border border-gray-400 text-gray-900']"
           @focus="isEditingBufferSize = true"
           @blur="commitBufferSize"
           @keydown.enter="($event.target as HTMLInputElement).blur()"
@@ -99,11 +99,11 @@ const getCursorValue = (channelId: number): number | null => {
 
     <!-- 通道列表 -->
     <div class="flex-1 overflow-y-auto p-4">
-      <h2 :class="['text-sm font-semibold mb-3', isDark ? 'text-gray-400' : 'text-gray-600']">
+      <h2 :class="['text-sm font-semibold mb-3', isDark ? 'text-gray-400' : 'text-gray-700']">
         通道 ({{ channelCount }})
       </h2>
 
-      <div v-if="channelCount === 0" :class="['text-sm text-center py-4', isDark ? 'text-gray-500' : 'text-gray-400']">
+      <div v-if="channelCount === 0" :class="['text-sm text-center py-4', isDark ? 'text-gray-500' : 'text-gray-500']">
         等待数据...
       </div>
 
