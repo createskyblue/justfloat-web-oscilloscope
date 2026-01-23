@@ -394,11 +394,6 @@ const initMinimap = (sync = false) => {
 
     // 更新视口位置
     updateMinimapViewport()
-
-    // 立即更新一次数据，确保显示最新内容
-    nextTick(() => {
-      updateMinimapData()
-    })
   }
 
   // 如果需要同步执行（如数据重新开始时），直接执行
@@ -763,14 +758,7 @@ watch(() => props.isDark, async () => {
     await initChart()
     rafId = requestAnimationFrame(updateChart)
   }
-  // 重新创建 minimap
-  if (minimapContainer.value && props.totalPoints > 0) {
-    if (minimap.value) {
-      minimap.value.destroy()
-      minimap.value = null
-    }
-    initMinimap()
-  }
+  // minimap 会在 updateChart 循环中通过 updateMinimapData() 自动重建
 })
 
 // 监听通道配置变化（系数等），更新选区统计
