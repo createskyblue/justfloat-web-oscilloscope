@@ -329,7 +329,7 @@ const resetZoom = () => {
   isZoomed.value = false
   zoomRange.value = null
   selectionStats.value = null
-  panelPosition.value = { x: 8, y: 8 } // 重置位置
+  // 不重置面板位置，让用户移动后的位置保持不变
   emit('selection-change', null)
 }
 
