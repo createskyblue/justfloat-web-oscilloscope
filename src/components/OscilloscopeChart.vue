@@ -320,7 +320,8 @@ const initChart = () => {
 
   const rect = chartContainer.value.getBoundingClientRect()
   const width = rect.width || 800
-  const height = rect.height || 400
+  // 减去 Minimap 的高度 (70px) + 额外间距 (5px)
+  const height = Math.max(100, (rect.height || 400) - 75)
 
   // 初始空数据
   const initialData: uPlot.AlignedData = [[0]]
@@ -570,7 +571,8 @@ const handleResize = () => {
 
     const rect = chartContainer.value.getBoundingClientRect()
     const width = Math.max(100, Math.floor(rect.width))
-    const height = Math.max(100, Math.floor(rect.height))
+    // 减去 Minimap 的高度 (70px) + 额外间距 (5px)
+    const height = Math.max(100, Math.floor(rect.height) - 75)
 
     // 检查尺寸是否有效且有变化
     if (width > 0 && height > 0) {
