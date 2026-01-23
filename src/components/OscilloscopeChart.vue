@@ -34,6 +34,11 @@ const minimapViewport = ref<HTMLDivElement | null>(null)
 const isDraggingViewport = ref(false)
 const viewportDragStartX = ref(0)
 const viewportDragStartLeft = ref(0)
+// 边框拖动状态
+const edgeDragMode = ref<'left' | 'right' | null>(null)
+const edgeDragStartX = ref(0)
+const edgeDragStartLeft = ref(0)
+const edgeDragStartWidth = ref(0)
 
 // 选区状态
 const selectionStats = ref<SelectionStats | null>(null)
@@ -443,6 +448,109 @@ const stopViewportDrag = () => {
   document.removeEventListener('mouseup', stopViewportDrag)
 }
 
+// 检测鼠标在视口边框的位置
+const getCursorAtEdge = (e: MouseEvent): 'left' | 'right' | null => {
+  if (!minimapViewport.value) return null
+  const rect = minimapViewport.value.getBoundingClientRect()
+  const x = e.clientX - rect.left
+  const edgeThreshold = 6 // 边框检测阈值（像素）
+
+  if (x <= edgeThreshold) return 'left'
+  if (x >= rect.width - edgeThreshold) return 'right'
+  return null
+}
+
+// 更新鼠标指针样式
+const updateCursorStyle = (e: MouseEvent) => {
+  if (!minimapViewport.value) return
+  const edge = getCursorAtEdge(e)
+  if (edge === 'left') {
+    minimapViewport.value.style.cursor = 'w-resize'
+  } else if (edge === 'right') {
+    minimapViewport.value.style.cursor = 'e-resize'
+  } else {
+    minimapViewport.value.style.cursor = isDraggingViewport.value ? 'grabbing' : 'grab'
+  }
+}
+
+// 左边框拖动开始
+const startLeftEdgeDrag = (e: MouseEvent) => {
+  if (!minimapViewport.value || !minimapContainer.value) return
+  edgeDragMode.value = 'left'
+  edgeDragStartX.value = e.clientX
+  edgeDragStartLeft.value = parseFloat(minimapViewport.value.style.left || '0')
+  edgeDragStartWidth.value = parseFloat(minimapViewport.value.style.width || '100')
+
+  document.addEventListener('mousemove', onEdgeDrag)
+  document.addEventListener('mouseup', stopEdgeDrag)
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+// 右边框拖动开始
+const startRightEdgeDrag = (e: MouseEvent) => {
+  if (!minimapViewport.value || !minimapContainer.value) return
+  edgeDragMode.value = 'right'
+  edgeDragStartX.value = e.clientX
+  edgeDragStartLeft.value = parseFloat(minimapViewport.value.style.left || '0')
+  edgeDragStartWidth.value = parseFloat(minimapViewport.value.style.width || '100')
+
+  document.addEventListener('mousemove', onEdgeDrag)
+  document.addEventListener('mouseup', stopEdgeDrag)
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+// 边框拖动中
+const onEdgeDrag = (e: MouseEvent) => {
+  if (!edgeDragMode.value || !minimapViewport.value || !minimapContainer.value || !minimap.value) return
+
+  const containerRect = minimapContainer.value.getBoundingClientRect()
+  const deltaX = e.clientX - edgeDragStartX.value
+  const deltaXPct = (deltaX / containerRect.width) * 100
+
+  let newLeft = edgeDragStartLeft.value
+  let newWidth = edgeDragStartWidth.value
+
+  if (edgeDragMode.value === 'left') {
+    // 拖动左边框：改变 left 和 width
+    const maxDelta = edgeDragStartWidth.value - 2 // 最小宽度 2%
+    const delta = Math.max(-edgeDragStartLeft.value, Math.min(deltaXPct, maxDelta))
+    newLeft = edgeDragStartLeft.value + delta
+    newWidth = edgeDragStartWidth.value - delta
+  } else if (edgeDragMode.value === 'right') {
+    // 拖动右边框：只改变 width
+    const maxDelta = 100 - edgeDragStartLeft.value - edgeDragStartWidth.value
+    const delta = Math.max(-edgeDragStartWidth.value + 2, Math.min(deltaXPct, maxDelta))
+    newWidth = edgeDragStartWidth.value + delta
+  }
+
+  minimapViewport.value.style.left = `${newLeft}%`
+  minimapViewport.value.style.width = `${newWidth}%`
+
+  // 计算对应的缩放范围
+  const total = props.totalPoints
+  const startIdx = Math.floor((newLeft / 100) * total)
+  const endIdx = Math.floor(((newLeft + newWidth) / 100) * total)
+
+  if (endIdx > startIdx) {
+    zoomRange.value = { start: startIdx, end: endIdx }
+    isZoomed.value = true
+
+    // 更新选区统计
+    const stats = props.getSelectionStats(startIdx, endIdx)
+    selectionStats.value = stats
+    emit('selection-change', stats)
+  }
+}
+
+// 停止边框拖动
+const stopEdgeDrag = () => {
+  edgeDragMode.value = null
+  document.removeEventListener('mousemove', onEdgeDrag)
+  document.removeEventListener('mouseup', stopEdgeDrag)
+}
+
 // 更新图表数据
 const updateChart = () => {
   if (!chart.value || isUpdating) {
@@ -693,6 +801,9 @@ onUnmounted(() => {
   // 清理视口拖动事件
   document.removeEventListener('mousemove', onViewportDrag)
   document.removeEventListener('mouseup', stopViewportDrag)
+  // 清理边框拖动事件
+  document.removeEventListener('mousemove', onEdgeDrag)
+  document.removeEventListener('mouseup', stopEdgeDrag)
 })
 
 // 暴露方法给父组件
@@ -869,10 +980,27 @@ defineExpose({
       <div
         v-if="minimap"
         ref="minimapViewport"
-        :class="['absolute top-0 bottom-0 cursor-grab border-2', isDark ? 'bg-blue-900/30 border-blue-500' : 'bg-blue-100/50 border-blue-500', { 'cursor-grabbing': isDraggingViewport }]"
-        style="margin: 5px 10px 5px 10px; min-width: 20px;"
-        @mousedown="startViewportDrag"
-      ></div>
+        :class="['absolute top-0 bottom-0 border-2', isDark ? 'bg-blue-900/30 border-blue-500' : 'bg-blue-100/50 border-blue-500', { 'cursor-grabbing': isDraggingViewport || edgeDragMode }]"
+        style="margin: 5px 10px 5px 10px; min-width: 20px; cursor: grab;"
+        @mousemove="updateCursorStyle"
+        @mousedown="(e) => {
+          const edge = getCursorAtEdge(e)
+          if (edge === 'left') startLeftEdgeDrag(e)
+          else if (edge === 'right') startRightEdgeDrag(e)
+          else startViewportDrag(e)
+        }"
+      >
+        <!-- 左边框调整手柄 -->
+        <div
+          class="absolute top-0 bottom-0 w-1 cursor-w-resize hover:bg-white/50"
+          style="left: -2px;"
+        ></div>
+        <!-- 右边框调整手柄 -->
+        <div
+          class="absolute top-0 bottom-0 w-1 cursor-e-resize hover:bg-white/50"
+          style="right: -2px;"
+        ></div>
+      </div>
     </div>
   </div>
 </template>
