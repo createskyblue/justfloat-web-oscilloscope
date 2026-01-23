@@ -331,8 +331,8 @@ const updateChart = () => {
   rafId = requestAnimationFrame(updateChart)
 }
 
-// 重置缩放（返回上一个缩放点）
-const resetZoom = () => {
+// 返回上一级缩放（使用历史栈）
+const undoZoom = () => {
   // 如果有历史记录，恢复到上一个缩放状态
   if (zoomHistory.value.length > 0) {
     const prevZoom = zoomHistory.value.pop()
@@ -349,6 +349,15 @@ const resetZoom = () => {
   // 没有历史记录，完全重置
   isZoomed.value = false
   zoomRange.value = null
+  selectionStats.value = null
+  emit('selection-change', null)
+}
+
+// 完全重置缩放（清空历史，直接回到原始大小）
+const resetZoom = () => {
+  isZoomed.value = false
+  zoomRange.value = null
+  zoomHistory.value = []
   selectionStats.value = null
   emit('selection-change', null)
 }
@@ -482,8 +491,8 @@ defineExpose({
     <div
       ref="chartContainer"
       :class="['w-full h-full', isDark ? 'dark-chart' : 'light-chart']"
-      @dblclick="isZoomed && resetZoom()"
-      :title="isZoomed ? (zoomHistory.length > 0 ? '双击返回上一级缩放' : '双击完全重置') : ''"
+      @dblclick="isZoomed && undoZoom()"
+      :title="isZoomed ? '双击返回上一级缩放' : ''"
     ></div>
 
     <!-- 工具栏 -->
@@ -497,7 +506,7 @@ defineExpose({
         <button
           class="hover:bg-blue-500 rounded px-1"
           @click="resetZoom"
-          :title="zoomHistory.length > 0 ? `返回上一级 (${zoomHistory.length} 级历史)` : '完全重置缩放'"
+          title="完全重置缩放"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
