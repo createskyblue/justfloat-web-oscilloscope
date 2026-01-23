@@ -125,7 +125,7 @@ export function useDataBuffer(initialSize: number = 10000) {
     // 初始化更新时间（首次调用时）
     if (sampleRateUpdateTime === 0) {
       sampleRateUpdateTime = now
-      sampleCount = 0  // 重置为 0，下面会 +1
+      sampleCount = 0
     }
 
     // 计算采样率
@@ -147,15 +147,22 @@ export function useDataBuffer(initialSize: number = 10000) {
     if (frames.length === 0) return
 
     const now = performance.now()
+
+    // 使用当前采样率计算采样间隔（毫秒）
+    // 如果采样率未知，暂时使用 1ms 间隔，后续会更新
+    const currentRate = sampleRate.value > 0 ? sampleRate.value : 1
+    const sampleInterval = 1000 / currentRate
+
+    // 按采样间隔设置递增的时间戳
     const newFrames: DataFrame[] = frames.map((values, index) => ({
-      timestamp: now + index * 0.1,
+      timestamp: now + index * sampleInterval,
       values
     }))
 
     // 初始化更新时间（首次调用时）
     if (sampleRateUpdateTime === 0) {
       sampleRateUpdateTime = now
-      sampleCount = 0  // 重置为 0，下面会添加帧数
+      sampleCount = 0
     }
 
     // 计算采样率
@@ -169,7 +176,6 @@ export function useDataBuffer(initialSize: number = 10000) {
     }
 
     ringBuffer.pushBatch(newFrames)
-
     scheduleUpdate()
   }
 
@@ -245,8 +251,15 @@ export function useDataBuffer(initialSize: number = 10000) {
     const frames = ringBuffer.getRange(startIndex, endIndex)
     if (frames.length < 2) return null
 
-    const duration = frames[frames.length - 1].timestamp - frames[0].timestamp
-    const frequency = frames.length / (duration / 1000)
+    const pointCount = frames.length
+
+    // 直接用采样率计算时长，不依赖 timestamp
+    // 时长（毫秒）= 点数 / 采样率 * 1000
+    const currentSampleRate = sampleRate.value > 0 ? sampleRate.value : 1
+    const duration = (pointCount / currentSampleRate) * 1000
+
+    // 频率 = 1000 / 时长（毫秒）
+    const frequency = 1000 / duration
 
     const channels = []
     for (let ch = 0; ch < channelCount; ch++) {
@@ -279,7 +292,7 @@ export function useDataBuffer(initialSize: number = 10000) {
     return {
       startIndex,
       endIndex,
-      pointCount: frames.length,
+      pointCount,
       duration,
       frequency,
       channels
