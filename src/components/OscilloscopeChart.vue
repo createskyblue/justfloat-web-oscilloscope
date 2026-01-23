@@ -31,6 +31,7 @@ const chart = shallowRef<uPlot | null>(null)
 const minimapContainer = ref<HTMLDivElement | null>(null)
 const minimap = shallowRef<uPlot | null>(null)
 const minimapViewport = ref<HTMLDivElement | null>(null)
+const mainChartYAxisWidth = ref(0) // 主图Y轴宽度
 const isDraggingViewport = ref(false)
 const viewportDragStartX = ref(0)
 const viewportDragStartLeft = ref(0)
@@ -99,10 +100,6 @@ let lastUpdateTime = 0
 let isUpdating = false
 let resizeObserver: ResizeObserver | null = null
 let resizeTimeout: ReturnType<typeof setTimeout> | null = null
-// Minimap 刷新定时器
-let minimapRefreshTimer: ReturnType<typeof setInterval> | null = null
-let lastMinimapUpdateTime = 0
-const MINIMAP_REFRESH_INTERVAL = 1000 // 1秒刷新一次
 
 // 根据数据量和采样率调整刷新间隔（目标：至少30fps，即33ms间隔）
 const adjustedInterval = computed(() => {
@@ -341,14 +338,21 @@ const initChart = () => {
   const options = createOptions(width, height)
   chart.value = new uPlot(options, initialData, chartContainer.value)
 
+  // 获取主图Y轴宽度，用于对齐Minimap
+  nextTick(() => {
+    if (chart.value && chart.value.axes[1]) {
+      const axisSize = chart.value.axes[1].size
+      mainChartYAxisWidth.value = typeof axisSize === 'number' ? axisSize : 40
+    }
+  })
+
   // 初始化 Minimap
   initMinimap()
 }
 
 // 初始化 Minimap
-const initMinimap = () => {
-  // 延迟一帧确保 DOM 布局完成
-  requestAnimationFrame(() => {
+const initMinimap = (sync = false) => {
+  const doInit = () => {
     if (!minimapContainer.value || props.totalPoints === 0) return
 
     const rect = minimapContainer.value.getBoundingClientRect()
@@ -358,7 +362,7 @@ const initMinimap = () => {
 
     // 如果宽度还是无效，再延迟一帧
     if (width < 100) {
-      setTimeout(() => initMinimap(), 50)
+      setTimeout(() => initMinimap(sync), 50)
       return
     }
 
@@ -390,7 +394,20 @@ const initMinimap = () => {
 
     // 更新视口位置
     updateMinimapViewport()
-  })
+
+    // 立即更新一次数据，确保显示最新内容
+    nextTick(() => {
+      updateMinimapData()
+    })
+  }
+
+  // 如果需要同步执行（如数据重新开始时），直接执行
+  // 否则延迟一帧确保 DOM 布局完成
+  if (sync) {
+    doInit()
+  } else {
+    requestAnimationFrame(doInit)
+  }
 }
 
 // 更新 Minimap 视口位置
@@ -434,7 +451,7 @@ const onViewportDrag = (e: MouseEvent) => {
   const containerRect = minimapContainer.value.getBoundingClientRect()
   const deltaX = e.clientX - viewportDragStartX.value
   // 计算可用宽度（减去左右 margin）
-  const usableWidth = containerRect.width - 20 // 左右各 10px margin
+  const usableWidth = containerRect.width - mainChartYAxisWidth.value - 20 // 左边距Y轴宽度+10px，右边距10px
   const deltaXPct = (deltaX / usableWidth) * 100
 
   let newLeft = viewportDragStartLeft.value + deltaXPct
@@ -528,7 +545,7 @@ const onEdgeDrag = (e: MouseEvent) => {
   const containerRect = minimapContainer.value.getBoundingClientRect()
   const deltaX = e.clientX - edgeDragStartX.value
   // 计算可用宽度（减去左右 margin）
-  const usableWidth = containerRect.width - 20 // 左右各 10px margin
+  const usableWidth = containerRect.width - mainChartYAxisWidth.value - 20 // 左边距Y轴宽度+10px，右边距10px
   const deltaXPct = (deltaX / usableWidth) * 100
 
   let newLeft = edgeDragStartLeft.value
@@ -791,90 +808,50 @@ watch(() => props.totalPoints, (newVal, oldVal) => {
 
   // 从无数据变为有数据，初始化 minimap
   if (newVal > 0 && oldVal === 0) {
-    initMinimap()
+    // 使用 nextTick 和延迟确保 DOM 完全准备好
+    nextTick(() => {
+      setTimeout(() => {
+        initMinimap(true)
+      }, 100)
+    })
   }
 })
 
-// 定时刷新 Minimap 数据（1秒一次）
-const startMinimapRefresh = () => {
-  if (minimapRefreshTimer) return
+// 更新 Minimap 数据
+const updateMinimapData = () => {
+  if (!minimap.value || !minimapContainer.value || props.totalPoints === 0) return
 
-  minimapRefreshTimer = setInterval(() => {
-    // 如果没有 Minimap 或没有数据，跳过
-    if (!minimap.value || !minimapContainer.value || props.totalPoints === 0) return
+  const fullData = props.getChartData()
+  if (!fullData || fullData[0].length === 0) return
 
-    const now = Date.now()
-    if (now - lastMinimapUpdateTime < MINIMAP_REFRESH_INTERVAL) return
-    lastMinimapUpdateTime = now
+  const rect = minimapContainer.value.getBoundingClientRect()
+  const width = Math.max(100, (rect.width || 800) - 20)
 
-    try {
-      // 获取最新数据并更新 Minimap
-      const fullData = props.getChartData()
-      if (!fullData || fullData[0].length === 0) return
+  // 对数据进行降采样
+  const maxPoints = width * 2
+  const xData = fullData[0]
+  const step = Math.max(1, Math.ceil(xData.length / maxPoints))
 
-      const rect = minimapContainer.value.getBoundingClientRect()
-      const width = Math.max(100, (rect.width || 800) - 20)
+  const downsampledData: number[][] = [[]]
+  for (let ch = 1; ch < fullData.length; ch++) {
+    downsampledData.push([])
+  }
 
-      // 对数据进行降采样
-      const maxPoints = width * 2
-      const xData = fullData[0]
-      const step = Math.max(1, Math.ceil(xData.length / maxPoints))
-
-      const downsampledData: number[][] = [[]]
-      for (let ch = 1; ch < fullData.length; ch++) {
-        downsampledData.push([])
-      }
-
-      for (let i = 0; i < xData.length; i += step) {
-        downsampledData[0].push(xData[i] as number)
-        for (let ch = 1; ch < fullData.length; ch++) {
-          const channelData = fullData[ch] as number[]
-          downsampledData[ch].push(channelData[i])
-        }
-      }
-
-      // 更新 Minimap 数据
-      minimap.value.setData(downsampledData as uPlot.AlignedData)
-    } catch (error) {
-      console.error('Minimap refresh error:', error)
+  for (let i = 0; i < xData.length; i += step) {
+    downsampledData[0].push(xData[i] as number)
+    for (let ch = 1; ch < fullData.length; ch++) {
+      const channelData = fullData[ch] as number[]
+      downsampledData[ch].push(channelData[i])
     }
-  }, 500) // 每500ms检查一次，但实际刷新间隔为1秒
+  }
+
+  // 更新 Minimap 数据
+  minimap.value.setData(downsampledData as uPlot.AlignedData)
 }
 
-// 监听数据版本变化，更新 Minimap（节流）
-let lastDataVersion = 0
+// 监听数据版本变化，更新 Minimap
 watch(() => props.dataVersion, () => {
-  // 避免频繁更新
-  if (props.dataVersion - lastDataVersion < 10) return
-  lastDataVersion = props.dataVersion
-
-  // 如果有 Minimap 且有数据，立即更新一次
-  if (minimap.value && minimapContainer.value && props.totalPoints > 0) {
-    const fullData = props.getChartData()
-    if (!fullData || fullData[0].length === 0) return
-
-    const rect = minimapContainer.value.getBoundingClientRect()
-    const width = Math.max(100, (rect.width || 800) - 20)
-
-    const maxPoints = width * 2
-    const xData = fullData[0]
-    const step = Math.max(1, Math.ceil(xData.length / maxPoints))
-
-    const downsampledData: number[][] = [[]]
-    for (let ch = 1; ch < fullData.length; ch++) {
-      downsampledData.push([])
-    }
-
-    for (let i = 0; i < xData.length; i += step) {
-      downsampledData[0].push(xData[i] as number)
-      for (let ch = 1; ch < fullData.length; ch++) {
-        const channelData = fullData[ch] as number[]
-        downsampledData[ch].push(channelData[i])
-      }
-    }
-
-    minimap.value.setData(downsampledData as uPlot.AlignedData)
-  }
+  updateMinimapData()
 })
 
 // 监听缩放范围变化，更新视口位置
@@ -899,19 +876,10 @@ onMounted(() => {
 
   // 同时监听窗口 resize 事件作为备用
   window.addEventListener('resize', handleResize)
-
-  // 启动 Minimap 定时刷新
-  startMinimapRefresh()
 })
 
 onUnmounted(() => {
   destroyChart()
-
-  // 清理 Minimap 定时器
-  if (minimapRefreshTimer) {
-    clearInterval(minimapRefreshTimer)
-    minimapRefreshTimer = null
-  }
 
   // 清理 ResizeObserver
   if (resizeObserver) {
@@ -1104,7 +1072,10 @@ defineExpose({
       <div
         ref="minimapContainer"
         class="absolute inset-0"
-        style="margin: 5px 10px 5px 10px; height: 60px;"
+        :style="{
+          margin: '5px 10px 5px ' + (mainChartYAxisWidth + 10) + 'px',
+          height: '60px'
+        }"
       ></div>
 
       <!-- 可拖动的视口窗口 -->
@@ -1112,7 +1083,11 @@ defineExpose({
         v-if="minimap && isZoomed"
         ref="minimapViewport"
         :class="['absolute top-0 bottom-0 border-2', isDark ? 'bg-blue-900/30 border-blue-500' : 'bg-blue-100/50 border-blue-500', { 'cursor-grabbing': isDraggingViewport || edgeDragMode }]"
-        style="margin: 5px 10px 5px 10px; min-width: 20px; cursor: grab;"
+        :style="{
+          margin: '5px 10px 5px ' + (mainChartYAxisWidth + 10) + 'px',
+          minWidth: '20px',
+          cursor: 'grab'
+        }"
         @mousemove="updateCursorStyle"
         @mousedown="(e) => {
           const edge = getCursorAtEdge(e)
