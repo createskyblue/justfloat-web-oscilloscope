@@ -653,6 +653,10 @@ const updateChart = () => {
 
     // 直接使用 Float64Array，uPlot 原生支持 TypedArray
     chart.value.setData(chartData as uPlot.AlignedData)
+
+    // 同步更新 Minimap（与主图表使用同一个刷新循环，保证稳定性）
+    updateMinimapData()
+    updateMinimapViewport()
   } finally {
     isUpdating = false
   }
@@ -769,18 +773,6 @@ watch(() => props.isDark, async () => {
   }
 })
 
-// 监听数据点数变化，当数据清空时清除缩放状态
-watch(() => props.totalPoints, (newVal, oldVal) => {
-  // 从有数据变为无数据时，清除所有缩放状态
-  if (oldVal > 0 && newVal === 0) {
-    isZoomed.value = false
-    zoomRange.value = null
-    zoomHistory.value = []
-    selectionStats.value = null
-    emit('selection-change', null)
-  }
-})
-
 // 监听通道配置变化（系数等），更新选区统计
 watch(() => props.channels, () => {
   if (isZoomed.value && zoomRange.value) {
@@ -791,7 +783,7 @@ watch(() => props.channels, () => {
   }
 }, { deep: true })
 
-// 监听数据变化，初始化或更新 minimap
+// 监听数据变化，当数据清空时清除 Minimap
 watch(() => props.totalPoints, (newVal, oldVal) => {
   // 从有数据变为无数据，清除 Minimap 和缩放状态
   if (oldVal > 0 && newVal === 0) {
@@ -803,26 +795,24 @@ watch(() => props.totalPoints, (newVal, oldVal) => {
     isZoomed.value = false
     zoomRange.value = null
     zoomHistory.value = []
-    return
+    selectionStats.value = null
+    emit('selection-change', null)
   }
-
-  // 从无数据变为有数据，初始化 minimap
-  if (newVal > 0 && oldVal === 0) {
-    // 使用 nextTick 和延迟确保 DOM 完全准备好
-    nextTick(() => {
-      setTimeout(() => {
-        initMinimap(true)
-      }, 100)
-    })
-  }
+  // 从无数据变为有数据时，定时刷新器会自动初始化 minimap
 })
 
 // 更新 Minimap 数据
 const updateMinimapData = () => {
-  if (!minimap.value || !minimapContainer.value || props.totalPoints === 0) return
+  if (!minimapContainer.value || props.totalPoints === 0) return
 
   const fullData = props.getChartData()
   if (!fullData || fullData[0].length === 0) return
+
+  // 如果 minimap 不存在，尝试重新初始化
+  if (!minimap.value) {
+    initMinimap(true)
+    return
+  }
 
   const rect = minimapContainer.value.getBoundingClientRect()
   const width = Math.max(100, (rect.width || 800) - 20)
@@ -848,11 +838,6 @@ const updateMinimapData = () => {
   // 更新 Minimap 数据
   minimap.value.setData(downsampledData as uPlot.AlignedData)
 }
-
-// 监听数据版本变化，更新 Minimap
-watch(() => props.dataVersion, () => {
-  updateMinimapData()
-})
 
 // 监听缩放范围变化，更新视口位置
 watch([() => isZoomed.value, () => zoomRange.value], async () => {
