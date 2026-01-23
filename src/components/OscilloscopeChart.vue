@@ -27,6 +27,14 @@ const emit = defineEmits<{
 const chartContainer = ref<HTMLDivElement | null>(null)
 const chart = shallowRef<uPlot | null>(null)
 
+// Minimap 相关
+const minimapContainer = ref<HTMLDivElement | null>(null)
+const minimap = shallowRef<uPlot | null>(null)
+const minimapViewport = ref<HTMLDivElement | null>(null)
+const isDraggingViewport = ref(false)
+const viewportDragStartX = ref(0)
+const viewportDragStartLeft = ref(0)
+
 // 选区状态
 const selectionStats = ref<SelectionStats | null>(null)
 const isZoomed = ref(false)
@@ -243,6 +251,69 @@ const createOptions = (width: number, height: number): uPlot.Options => {
   }
 }
 
+// 创建 Minimap 配置（简化的预览图）
+const createMinimapOptions = (width: number, height: number): uPlot.Options => {
+  const series: uPlot.Series[] = [
+    { label: '索引' } // X 轴
+  ]
+
+  // 添加通道系列（只显示可见的通道）
+  for (let i = 0; i < Math.max(props.channelCount, 1); i++) {
+    const channel = props.channels[i]
+    const color = channel?.color || CHANNEL_COLORS[i % CHANNEL_COLORS.length]
+    const visible = channel?.visible ?? true
+
+    if (visible) {
+      series.push({
+        label: channel?.name || `通道 ${i + 1}`,
+        stroke: color,
+        width: 1,
+        show: true,
+        spanGaps: true,
+        fill: `${color}20` // 半透明填充
+      })
+    }
+  }
+
+  const isDarkTheme = props.isDark
+  const axesColor = isDarkTheme ? '#666' : '#ccc'
+  const gridColor = isDarkTheme ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+
+  return {
+    width,
+    height,
+    series,
+    scales: {
+      x: { time: false },
+      y: { auto: true }
+    },
+    axes: [
+      {
+        stroke: axesColor,
+        grid: { show: false },
+        ticks: { show: false },
+        size: 0
+      },
+      {
+        stroke: axesColor,
+        grid: { stroke: gridColor, width: 1 },
+        ticks: { show: false },
+        size: 0
+      }
+    ],
+    cursor: { show: false },
+    select: {
+      show: false,
+      left: 0,
+      top: 0,
+      width: 0,
+      height: 0
+    },
+    legend: { show: false },
+    hooks: {}
+  }
+}
+
 // 初始化图表
 const initChart = () => {
   if (!chartContainer.value) return
@@ -259,6 +330,116 @@ const initChart = () => {
 
   const options = createOptions(width, height)
   chart.value = new uPlot(options, initialData, chartContainer.value)
+
+  // 初始化 Minimap
+  initMinimap()
+}
+
+// 初始化 Minimap
+const initMinimap = () => {
+  if (!minimapContainer.value || props.totalPoints === 0) return
+
+  const rect = minimapContainer.value.getBoundingClientRect()
+  const width = rect.width || 800
+  const height = 60 // 固定高度
+
+  // 获取所有数据的降采样版本用于预览
+  const fullData = props.getChartData()
+  if (!fullData || fullData[0].length === 0) return
+
+  // 对数据进行降采样以适应小尺寸
+  const maxPoints = width * 2 // 每2个像素一个点
+  const xData = fullData[0]
+  const step = Math.max(1, Math.ceil(xData.length / maxPoints))
+
+  // 创建降采样数组
+  const downsampledData: number[][] = [[]]
+  for (let ch = 1; ch < fullData.length; ch++) {
+    downsampledData.push([])
+  }
+
+  for (let i = 0; i < xData.length; i += step) {
+    downsampledData[0].push(xData[i] as number)
+    for (let ch = 1; ch < fullData.length; ch++) {
+      const channelData = fullData[ch] as number[]
+      downsampledData[ch].push(channelData[i])
+    }
+  }
+
+  const options = createMinimapOptions(width, height)
+  minimap.value = new uPlot(options, downsampledData as uPlot.AlignedData, minimapContainer.value)
+
+  // 更新视口位置
+  updateMinimapViewport()
+}
+
+// 更新 Minimap 视口位置
+const updateMinimapViewport = () => {
+  if (!minimapViewport.value || !minimap.value || props.totalPoints === 0) return
+
+  const total = props.totalPoints
+  let startPct = 0
+  let widthPct = 1
+
+  if (isZoomed.value && zoomRange.value) {
+    const range = zoomRange.value.end - zoomRange.value.start
+    startPct = zoomRange.value.start / total
+    widthPct = range / total
+  }
+
+  minimapViewport.value.style.left = `${startPct * 100}%`
+  minimapViewport.value.style.width = `${widthPct * 100}%`
+}
+
+// 视口拖动开始
+const startViewportDrag = (e: MouseEvent) => {
+  if (!minimapViewport.value || !minimapContainer.value) return
+  isDraggingViewport.value = true
+  viewportDragStartX.value = e.clientX
+  viewportDragStartLeft.value = parseFloat(minimapViewport.value.style.left || '0')
+
+  document.addEventListener('mousemove', onViewportDrag)
+  document.addEventListener('mouseup', stopViewportDrag)
+  e.preventDefault()
+}
+
+// 视口拖动中
+const onViewportDrag = (e: MouseEvent) => {
+  if (!isDraggingViewport.value || !minimapViewport.value || !minimapContainer.value || !minimap.value) return
+
+  const containerRect = minimapContainer.value.getBoundingClientRect()
+  const deltaX = e.clientX - viewportDragStartX.value
+  const deltaXPct = (deltaX / containerRect.width) * 100
+
+  let newLeft = viewportDragStartLeft.value + deltaXPct
+  const viewportWidth = parseFloat(minimapViewport.value.style.width || '100')
+
+  // 限制在容器内
+  newLeft = Math.max(0, Math.min(newLeft, 100 - viewportWidth))
+
+  minimapViewport.value.style.left = `${newLeft}%`
+
+  // 计算对应的缩放范围
+  const total = props.totalPoints
+  const startIdx = Math.floor((newLeft / 100) * total)
+  const endIdx = Math.floor(((newLeft + viewportWidth) / 100) * total)
+
+  if (endIdx > startIdx) {
+    zoomRange.value = { start: startIdx, end: endIdx }
+    isZoomed.value = true
+
+    // 更新选区统计
+    const stats = props.getSelectionStats(startIdx, endIdx)
+    selectionStats.value = stats
+    emit('selection-change', stats)
+  }
+}
+
+// 停止视口拖动
+const stopViewportDrag = () => {
+  isDraggingViewport.value = false
+  document.removeEventListener('mousemove', onViewportDrag)
+  document.removeEventListener('mouseup', stopViewportDrag)
 }
 
 // 更新图表数据
@@ -372,6 +553,10 @@ const destroyChart = () => {
     chart.value.destroy()
     chart.value = null
   }
+  if (minimap.value) {
+    minimap.value.destroy()
+    minimap.value = null
+  }
 }
 
 // 调整大小（带防抖）
@@ -417,6 +602,14 @@ watch(() => props.isDark, async () => {
     await initChart()
     rafId = requestAnimationFrame(updateChart)
   }
+  // 重新创建 minimap
+  if (minimapContainer.value && props.totalPoints > 0) {
+    if (minimap.value) {
+      minimap.value.destroy()
+      minimap.value = null
+    }
+    initMinimap()
+  }
 })
 
 // 监听数据点数变化，当数据清空时清除缩放状态
@@ -440,6 +633,24 @@ watch(() => props.channels, () => {
     emit('selection-change', stats)
   }
 }, { deep: true })
+
+// 监听数据变化，初始化或更新 minimap
+watch(() => props.totalPoints, (newVal, oldVal) => {
+  if (newVal > 0 && oldVal === 0) {
+    // 从无数据变为有数据，初始化 minimap
+    initMinimap()
+  } else if (newVal > 0 && minimap.value) {
+    // 数据更新，重新初始化 minimap
+    minimap.value.destroy()
+    minimap.value = null
+    initMinimap()
+  }
+})
+
+// 监听缩放范围变化，更新视口位置
+watch([() => isZoomed.value, () => zoomRange.value], () => {
+  updateMinimapViewport()
+})
 
 // 生命周期
 onMounted(() => {
@@ -477,6 +688,9 @@ onUnmounted(() => {
   // 确保清理拖动事件
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
+  // 清理视口拖动事件
+  document.removeEventListener('mousemove', onViewportDrag)
+  document.removeEventListener('mouseup', stopViewportDrag)
 })
 
 // 暴露方法给父组件
@@ -631,8 +845,32 @@ defineExpose({
     <div
       v-if="totalPoints > 0 && !selectionStats"
       :class="['absolute bottom-2 left-2 text-xs', isDark ? 'text-gray-500' : 'text-gray-400']"
+      style="bottom: 75px;"
     >
       拖拽框选区域进行缩放和数据分析
+    </div>
+
+    <!-- Minimap 全局预览条 -->
+    <div
+      v-if="totalPoints > 0"
+      :class="['absolute bottom-0 left-0 right-0 z-20', isDark ? 'border-t border-gray-700' : 'border-t border-gray-300']"
+      :style="{ height: '70px', background: isDark ? '#1f2937' : '#f9fafb' }"
+    >
+      <!-- Minimap 图表容器 -->
+      <div
+        ref="minimapContainer"
+        class="absolute inset-0"
+        style="margin: 5px 10px 5px 10px; height: 60px;"
+      ></div>
+
+      <!-- 可拖动的视口窗口 -->
+      <div
+        v-if="minimap"
+        ref="minimapViewport"
+        :class="['absolute top-0 bottom-0 cursor-grab border-2', isDark ? 'bg-blue-900/30 border-blue-500' : 'bg-blue-100/50 border-blue-500', { 'cursor-grabbing': isDraggingViewport }]"
+        style="margin: 5px 10px 5px 10px; min-width: 20px;"
+        @mousedown="startViewportDrag"
+      ></div>
     </div>
   </div>
 </template>

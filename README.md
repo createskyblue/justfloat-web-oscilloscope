@@ -4,11 +4,7 @@
 
 An 8-channel Web oscilloscope with real-time 100 kHz waveform refresh, designed specifically for parsing JustFloat and FireWater binary protocols. This open-source tool runs entirely in the browser—no installation required—and supports three flexible data sources: USB serial (via Web Serial API), BLE devices (via Web Bluetooth API), and remote streams over WebSocket.
 
-![JustFloat 数据解析](./img/PixPin_2026-01-08_09-17-04.png)
-![JustFloat 1通道 100+KHz](./img/PixPin_2026-01-09_12-06-23.png)
-![JustFloat 1通道 100+KHz 统计分析](./img/PixPin_2026-01-09_12-06-41.png)
-![FireWater 数据解析](./img/PixPin_2026-01-09_04-00-32.png)
-
+![界面截图](./img/PixPin_2026-01-23_14-01-00.png)
 ## 功能特性
 
 - 通过串口或WebSocket连接设备并实时接收数据
