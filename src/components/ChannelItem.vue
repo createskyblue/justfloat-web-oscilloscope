@@ -164,14 +164,17 @@ const selectColor = (color: string) => {
     <!-- 实时统计信息（未展开时显示简化版） -->
     <div v-if="stats && !isExpanded" class="px-3 pb-2">
       <!-- 光标值显示 -->
-      <div v-if="cursorValue != null" :class="['mb-2 flex items-center justify-between text-xs rounded px-2 py-1', isDark ? 'bg-gray-800/50' : 'bg-yellow-50 border border-yellow-200']">
-        <span class="text-yellow-500">
+      <div v-if="cursorValue != null" :class="['mb-2 flex items-center justify-between rounded px-2 py-1.5', isDark ? 'bg-gray-800/50' : 'bg-yellow-50 border border-yellow-200']">
+        <span class="text-yellow-500 text-xs">
           <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2z" />
           </svg>
           光标 [{{ cursorIndex }}]
         </span>
-        <span class="text-yellow-600 font-mono tabular-nums">{{ formatNumber(cursorValue) }}</span>
+        <span class="text-yellow-600 font-mono tabular-nums text-base font-semibold">
+          {{ formatNumber(cursorValue) }}
+          <span v-if="channel.unit" class="text-sm ml-1">{{ channel.unit }}</span>
+        </span>
       </div>
 
       <div class="grid grid-cols-4 gap-1 text-xs">
@@ -243,14 +246,17 @@ const selectColor = (color: string) => {
         <div :class="['text-xs mb-2', isDark ? 'text-gray-500' : 'text-gray-600']">实时统计</div>
 
         <!-- 光标值显示 -->
-        <div v-if="cursorValue != null" :class="['mb-2 flex items-center justify-between text-xs rounded px-2 py-1 border', isDark ? 'bg-yellow-900/30 border-yellow-700/30' : 'bg-yellow-50 border-yellow-300']">
-          <span class="text-yellow-500">
+        <div v-if="cursorValue != null" :class="['mb-2 flex items-center justify-between rounded px-2 py-1.5 border', isDark ? 'bg-yellow-900/30 border-yellow-700/30' : 'bg-yellow-50 border-yellow-300']">
+          <span class="text-yellow-500 text-xs">
             <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2z" />
             </svg>
             光标值 [{{ cursorIndex }}]:
           </span>
-          <span class="text-yellow-600 font-mono tabular-nums">{{ formatNumber(cursorValue) }}</span>
+          <span class="text-yellow-600 font-mono tabular-nums text-base font-semibold">
+            {{ formatNumber(cursorValue) }}
+            <span v-if="channel.unit" class="text-sm ml-1">{{ channel.unit }}</span>
+          </span>
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
