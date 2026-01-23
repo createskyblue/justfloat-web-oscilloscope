@@ -31,6 +31,8 @@ const chart = shallowRef<uPlot | null>(null)
 const selectionStats = ref<SelectionStats | null>(null)
 const isZoomed = ref(false)
 const zoomRange = ref<{ start: number; end: number } | null>(null)
+// 缩放历史栈
+const zoomHistory = ref<{ start: number; end: number }[]>([])
 
 // 光标值状态
 const cursorIndex = ref<number | null>(null)
@@ -200,6 +202,11 @@ const createOptions = (width: number, height: number): uPlot.Options => {
             const endIdx = Math.min(props.totalPoints - 1, Math.ceil(endX))
 
             if (endIdx > startIdx) {
+              // 如果当前已缩放，将当前状态推入历史栈
+              if (isZoomed.value && zoomRange.value) {
+                zoomHistory.value.push({ ...zoomRange.value })
+              }
+
               // 计算选区统计
               const stats = props.getSelectionStats(startIdx, endIdx)
               selectionStats.value = stats
@@ -324,12 +331,25 @@ const updateChart = () => {
   rafId = requestAnimationFrame(updateChart)
 }
 
-// 重置缩放
+// 重置缩放（返回上一个缩放点）
 const resetZoom = () => {
+  // 如果有历史记录，恢复到上一个缩放状态
+  if (zoomHistory.value.length > 0) {
+    const prevZoom = zoomHistory.value.pop()
+    if (prevZoom) {
+      zoomRange.value = prevZoom
+      // 重新计算选区统计
+      const stats = props.getSelectionStats(prevZoom.start, prevZoom.end)
+      selectionStats.value = stats
+      emit('selection-change', stats)
+      return
+    }
+  }
+
+  // 没有历史记录，完全重置
   isZoomed.value = false
   zoomRange.value = null
   selectionStats.value = null
-  // 不重置面板位置，让用户移动后的位置保持不变
   emit('selection-change', null)
 }
 
@@ -387,6 +407,18 @@ watch(() => props.isDark, async () => {
     destroyChart()
     await initChart()
     rafId = requestAnimationFrame(updateChart)
+  }
+})
+
+// 监听数据点数变化，当数据清空时清除缩放状态
+watch(() => props.totalPoints, (newVal, oldVal) => {
+  // 从有数据变为无数据时，清除所有缩放状态
+  if (oldVal > 0 && newVal === 0) {
+    isZoomed.value = false
+    zoomRange.value = null
+    zoomHistory.value = []
+    selectionStats.value = null
+    emit('selection-change', null)
   }
 })
 
@@ -451,7 +483,7 @@ defineExpose({
       ref="chartContainer"
       :class="['w-full h-full', isDark ? 'dark-chart' : 'light-chart']"
       @dblclick="isZoomed && resetZoom()"
-      title="双击可重置缩放"
+      :title="isZoomed ? (zoomHistory.length > 0 ? '双击返回上一级缩放' : '双击完全重置') : ''"
     ></div>
 
     <!-- 工具栏 -->
@@ -465,7 +497,7 @@ defineExpose({
         <button
           class="hover:bg-blue-500 rounded px-1"
           @click="resetZoom"
-          title="重置缩放"
+          :title="zoomHistory.length > 0 ? `返回上一级 (${zoomHistory.length} 级历史)` : '完全重置缩放'"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
