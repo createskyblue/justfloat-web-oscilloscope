@@ -17,6 +17,7 @@ export function useProtocolParser() {
   let justfloatBuffer: number[] = []
   let justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
   let firstSyncIndex = -1
+  let expectedChannelCount = 0 // 记录预期的通道数，用于检测异常
 
   // FireWater 内部状态
   let firewaterBuffer = ''
@@ -63,7 +64,13 @@ export function useProtocolParser() {
   const addFrameToBatch = (values: number[]) => {
     framesBatch.push(values)
     frameCount.value++
-    channelCount.value = values.length
+
+    // 只在通道数增加时更新（避免因误解析导致通道数突然减少）
+    if (values.length > channelCount.value) {
+      channelCount.value = values.length
+    } else if (channelCount.value === 0) {
+      channelCount.value = values.length
+    }
 
     if (framesBatch.length >= BATCH_SIZE) {
       flushBatch()
@@ -74,6 +81,7 @@ export function useProtocolParser() {
 
   // ==================== JustFloat 协议解析 ====================
 
+  // 检查同步字节（检查 buffer 末尾的 4 个字节）
   const checkSyncBytes = (): boolean => {
     if (justfloatBuffer.length < 4) return false
     const start = justfloatBuffer.length - 4
@@ -81,6 +89,27 @@ export function useProtocolParser() {
            justfloatBuffer[start + 1] === SYNC_BYTES[1] &&
            justfloatBuffer[start + 2] === SYNC_BYTES[2] &&
            justfloatBuffer[start + 3] === SYNC_BYTES[3]
+  }
+
+  // 检查是否在有效位置（避免在数据中间误判同步字）
+  // payload 长度应该是 4 的倍数，且应该合理（至少要有一些数据）
+  const isValidPayload = (payloadStart: number, payloadEnd: number): boolean => {
+    const payloadLength = payloadEnd - payloadStart
+
+    // payload 必须是 4 的倍数（float32）
+    if (payloadLength % 4 !== 0) return false
+
+    // payload 不能为空
+    if (payloadLength === 0) return false
+
+    // 至少要有一个完整的浮点数
+    if (payloadLength < 4) return false
+
+    // payload 长度应该合理（不超过 64 个通道，即 256 字节）
+    // 这可以根据实际需求调整，但不应过大以避免误判
+    if (payloadLength > 256) return false
+
+    return true
   }
 
   const parseFloats = (data: number[]): number[] => {
@@ -121,19 +150,39 @@ export function useProtocolParser() {
             const secondSyncIndex = justfloatBuffer.length - 4
             const payloadStart = firstSyncIndex + 4
             const payloadEnd = secondSyncIndex
-            const payloadLength = payloadEnd - payloadStart
 
-            if (payloadLength > 0 && payloadLength % 4 === 0) {
+            // 使用新的验证逻辑，避免在数据中间误判同步字
+            if (isValidPayload(payloadStart, payloadEnd)) {
               const payload = justfloatBuffer.slice(payloadStart, payloadEnd)
               const values = parseFloats(payload)
 
+              // 检查通道数是否一致（如果已经知道通道数）
+              if (expectedChannelCount > 0 && values.length !== expectedChannelCount) {
+                // 通道数不一致，可能是误判的同步字，跳过这次处理
+                // 重置状态，重新查找
+                justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
+                firstSyncIndex = -1
+                break  // 使用 break 而不是 return，继续处理后续字节
+              }
+
+              // 只添加有效的数据帧（至少包含一个通道的数据）
               if (values.length > 0) {
+                // 记录通道数（第一次成功解析时）
+                if (expectedChannelCount === 0) {
+                  expectedChannelCount = values.length
+                }
                 addFrameToBatch(values)
               }
+            } else {
+              // payload 无效，可能是误判的同步字，继续查找
+              // 不要截断 buffer，继续处理
+              break
             }
 
+            // 修复：正确处理 buffer 截断，确保 firstSyncIndex 指向正确的同步字位置
+            // 保留第二个同步字，使其成为下一次查找的第一个同步字
             justfloatBuffer = justfloatBuffer.slice(secondSyncIndex)
-            firstSyncIndex = justfloatBuffer.length - 4
+            firstSyncIndex = 0 // 现在第二个同步字已经在 buffer 的开头了
           }
           break
       }
@@ -254,6 +303,7 @@ export function useProtocolParser() {
     justfloatBuffer = []
     justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
     firstSyncIndex = -1
+    expectedChannelCount = 0 // 重置通道数记录
     // FireWater 状态
     firewaterBuffer = ''
     textDecoder = new TextDecoder() // 重新创建以清除内部状态

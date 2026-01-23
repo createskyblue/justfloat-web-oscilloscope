@@ -122,14 +122,14 @@ export function useDataBuffer(initialSize: number = 10000) {
       values
     }
 
-    // 计算采样率
-    sampleCount++
-
-    // 初始化更新时间
+    // 初始化更新时间（首次调用时）
     if (sampleRateUpdateTime === 0) {
       sampleRateUpdateTime = now
-      sampleCount = 1
+      sampleCount = 0  // 重置为 0，下面会 +1
     }
+
+    // 计算采样率
+    sampleCount++
 
     const elapsed = now - sampleRateUpdateTime
     if (elapsed >= 1000) {
@@ -152,14 +152,14 @@ export function useDataBuffer(initialSize: number = 10000) {
       values
     }))
 
-    // 计算采样率
-    sampleCount += frames.length
-
-    // 初始化更新时间
+    // 初始化更新时间（首次调用时）
     if (sampleRateUpdateTime === 0) {
       sampleRateUpdateTime = now
-      sampleCount = frames.length
+      sampleCount = 0  // 重置为 0，下面会添加帧数
     }
+
+    // 计算采样率
+    sampleCount += frames.length
 
     const elapsed = now - sampleRateUpdateTime
     if (elapsed >= 1000) {
