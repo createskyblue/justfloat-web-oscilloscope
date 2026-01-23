@@ -445,8 +445,8 @@ const onViewportDrag = (e: MouseEvent) => {
 
   const containerRect = minimapContainer.value.getBoundingClientRect()
   const deltaX = e.clientX - viewportDragStartX.value
-  // 计算可用宽度（减去左右 margin）
-  const usableWidth = containerRect.width - mainChartYAxisWidth.value - 20 // 左边距Y轴宽度+10px，右边距10px
+  // 视口现在在 minimapContainer 内部，直接使用容器宽度
+  const usableWidth = containerRect.width
   const deltaXPct = (deltaX / usableWidth) * 100
 
   let newLeft = viewportDragStartLeft.value + deltaXPct
@@ -539,8 +539,8 @@ const onEdgeDrag = (e: MouseEvent) => {
 
   const containerRect = minimapContainer.value.getBoundingClientRect()
   const deltaX = e.clientX - edgeDragStartX.value
-  // 计算可用宽度（减去左右 margin）
-  const usableWidth = containerRect.width - mainChartYAxisWidth.value - 20 // 左边距Y轴宽度+10px，右边距10px
+  // 视口现在在 minimapContainer 内部，直接使用容器宽度
+  const usableWidth = containerRect.width
   const deltaXPct = (deltaX / usableWidth) * 100
 
   let newLeft = edgeDragStartLeft.value
@@ -1044,41 +1044,40 @@ defineExpose({
       <!-- Minimap 图表容器 -->
       <div
         ref="minimapContainer"
-        class="absolute inset-0"
+        class="absolute inset-0 relative"
         :style="{
           margin: '5px 10px 5px ' + (mainChartYAxisWidth + 10) + 'px',
           height: '60px'
         }"
-      ></div>
-
-      <!-- 可拖动的视口窗口 -->
-      <div
-        v-if="minimap && isZoomed"
-        ref="minimapViewport"
-        :class="['absolute top-0 bottom-0 border-2', isDark ? 'bg-blue-900/30 border-blue-500' : 'bg-blue-100/50 border-blue-500', { 'cursor-grabbing': isDraggingViewport || edgeDragMode }]"
-        :style="{
-          margin: '5px 10px 5px ' + (mainChartYAxisWidth + 10) + 'px',
-          minWidth: '20px',
-          cursor: 'grab'
-        }"
-        @mousemove="updateCursorStyle"
-        @mousedown="(e) => {
-          const edge = getCursorAtEdge(e)
-          if (edge === 'left') startLeftEdgeDrag(e)
-          else if (edge === 'right') startRightEdgeDrag(e)
-          else startViewportDrag(e)
-        }"
       >
-        <!-- 左边框调整手柄 -->
+        <!-- 可拖动的视口窗口（放在 minimapContainer 内部，百分比相对于此容器计算） -->
         <div
-          class="absolute top-0 bottom-0 w-1 cursor-w-resize hover:bg-white/50"
-          style="left: -2px;"
-        ></div>
-        <!-- 右边框调整手柄 -->
-        <div
-          class="absolute top-0 bottom-0 w-1 cursor-e-resize hover:bg-white/50"
-          style="right: -2px;"
-        ></div>
+          v-if="minimap && isZoomed"
+          ref="minimapViewport"
+          :class="['absolute top-0 bottom-0 border-2 z-10', isDark ? 'bg-blue-900/30 border-blue-500' : 'bg-blue-100/50 border-blue-500', { 'cursor-grabbing': isDraggingViewport || edgeDragMode }]"
+          :style="{
+            minWidth: '20px',
+            cursor: 'grab'
+          }"
+          @mousemove="updateCursorStyle"
+          @mousedown="(e) => {
+            const edge = getCursorAtEdge(e)
+            if (edge === 'left') startLeftEdgeDrag(e)
+            else if (edge === 'right') startRightEdgeDrag(e)
+            else startViewportDrag(e)
+          }"
+        >
+          <!-- 左边框调整手柄 -->
+          <div
+            class="absolute top-0 bottom-0 w-1 cursor-w-resize hover:bg-white/50"
+            style="left: -2px;"
+          ></div>
+          <!-- 右边框调整手柄 -->
+          <div
+            class="absolute top-0 bottom-0 w-1 cursor-e-resize hover:bg-white/50"
+            style="right: -2px;"
+          ></div>
+        </div>
       </div>
     </div>
   </div>
