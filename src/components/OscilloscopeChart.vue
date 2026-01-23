@@ -356,8 +356,8 @@ const initMinimap = (sync = false) => {
     if (!minimapContainer.value || props.totalPoints === 0) return
 
     const rect = minimapContainer.value.getBoundingClientRect()
-    // 减去左右 margin (10px * 2)
-    const width = Math.max(100, (rect.width || 800) - 20)
+    // 使用容器的完整宽度
+    const width = Math.max(100, rect.width || 800)
     const height = 60 // 固定高度
 
     // 如果宽度还是无效，再延迟一帧
@@ -803,7 +803,8 @@ const updateMinimapData = () => {
   }
 
   const rect = minimapContainer.value.getBoundingClientRect()
-  const width = Math.max(100, (rect.width || 800) - 20)
+  // 使用容器的完整宽度
+  const width = Math.max(100, rect.width || 800)
 
   // 对数据进行降采样
   const maxPoints = width * 2
@@ -1044,7 +1045,7 @@ defineExpose({
       <!-- Minimap 图表容器 -->
       <div
         ref="minimapContainer"
-        class="absolute inset-0 relative"
+        class="relative"
         :style="{
           margin: '5px 10px 5px ' + (mainChartYAxisWidth + 10) + 'px',
           height: '60px'
