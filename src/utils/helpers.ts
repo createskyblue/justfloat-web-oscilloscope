@@ -29,7 +29,13 @@ export function formatTime(ms: number): string {
   if (ms < 1000) {
     return ms.toFixed(1) + ' ms'
   }
-  return (ms / 1000).toFixed(2) + ' s'
+  if (ms < 60000) {
+    return ms.toFixed(2) + ' s'
+  }
+  // 大于1分钟，显示 分钟:秒 格式
+  const minutes = Math.floor(ms / 60000)
+  const seconds = (ms % 60000) / 1000
+  return `${minutes}:${seconds.toFixed(0).padStart(2, '0')} min`
 }
 
 /**

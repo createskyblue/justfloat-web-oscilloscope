@@ -4,7 +4,7 @@ import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import type { ChannelConfig, SelectionStats } from '@/types'
 import { CHANNEL_COLORS } from '@/types'
-import { formatNumber } from '@/utils/helpers'
+import { formatNumber, formatTime } from '@/utils/helpers'
 
 const props = defineProps<{
   data: any
@@ -525,7 +525,7 @@ defineExpose({
         </div>
         <div>
           <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">时长</span>
-          <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ formatNumber(selectionStats.duration, 1) }}ms</div>
+          <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ formatTime(selectionStats.duration) }}</div>
         </div>
         <div>
           <span :class="isDark ? 'text-gray-500' : 'text-gray-400'">频率</span>
