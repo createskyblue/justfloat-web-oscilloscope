@@ -69,10 +69,10 @@ export interface DataFrame {
   values: number[]
 }
 
-// 导出数据格式
+// 导出数据格式（按通道存储，不包含时间戳）
 export interface ExportData {
   config: AppConfig
-  data: DataFrame[]
+  channels: number[][]  // 二维数组，每个子数组是一个通道的所有数据点
   sampleRate: number
   exportTime: string
 }

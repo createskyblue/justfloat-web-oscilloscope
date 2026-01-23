@@ -183,7 +183,7 @@ const handleExport = () => {
       btCharacteristicUUID: btCharacteristicUUID.value,
       channels: channelConfig.channels.value
     },
-    data: buffer.exportData(),
+    channels: buffer.exportData(),
     sampleRate: buffer.sampleRate.value,
     exportTime: new Date().toISOString()
   }
@@ -201,24 +201,36 @@ const handleImport = async () => {
     if (!file) return
 
     try {
+      console.log('开始导入文件:', file.name)
       const data = await readJsonFile<ExportData>(file)
+      console.log('解析后的数据:', data)
+
       if (data.config) {
+        console.log('导入配置:', data.config)
         baudRate.value = data.config.baudRate
         bufferSize.value = data.config.bufferSize
         if (data.config.channels) {
           channelConfig.loadChannels(data.config.channels)
         }
       }
-      if (data.data && data.data.length > 0) {
-        buffer.importData(data.data)
-        // 根据导入的数据确定通道数
-        const firstFrame = data.data[0]
-        if (firstFrame && firstFrame.values) {
-          parser.setChannelCount(firstFrame.values.length)
-          channelConfig.ensureChannels(firstFrame.values.length)
-        }
+
+      // 导入通道数据
+      if (data.channels && data.channels.length > 0) {
+        console.log('通道数据长度:', data.channels.length)
+        console.log('第一个通道数据点数:', data.channels[0]?.length)
+        console.log('采样率:', data.sampleRate)
+        const channelCount = data.channels.length
+        parser.setChannelCount(channelCount)
+        channelConfig.ensureChannels(channelCount)
+        buffer.importChannels(data.channels, channelCount, data.sampleRate)
+        console.log('导入完成，总数据点:', buffer.totalPoints.value)
+        alert('导入成功！共导入 ' + buffer.totalPoints.value + ' 个数据点')
+      } else {
+        console.error('没有找到通道数据')
+        alert('导入失败：文件中没有找到通道数据，请确保导出了正确的文件格式')
       }
     } catch (error) {
+      console.error('导入失败:', error)
       alert('导入失败: ' + (error as Error).message)
     }
   }

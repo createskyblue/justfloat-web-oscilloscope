@@ -448,7 +448,7 @@ export function useDataBuffer(initialSize: number = 10000) {
     dataVersion.value++
   }
 
-  // 导入数据
+  // 导入数据（从 DataFrame[] 格式）
   const importData = (frames: DataFrame[]) => {
     clear()
     const toImport = frames.slice(-bufferSize.value)
@@ -458,9 +458,73 @@ export function useDataBuffer(initialSize: number = 10000) {
     dataVersion.value++
   }
 
-  // 导出数据
-  const exportData = (): DataFrame[] => {
-    return ringBuffer.toArray()
+  // 导出数据（按通道存储的数组格式，不包含时间戳）
+  const exportData = (): number[][] => {
+    const totalSize = ringBuffer.size
+    if (totalSize === 0) return []
+
+    // 确定通道数（从第一帧获取）
+    const firstFrame = ringBuffer.get(0)
+    if (!firstFrame) return []
+    const channelCount = firstFrame.values.length
+
+    // 初始化通道数组
+    const channels: number[][] = []
+    for (let i = 0; i < channelCount; i++) {
+      channels[i] = []
+    }
+
+    // 按通道填充数据
+    for (let i = 0; i < totalSize; i++) {
+      const frame = ringBuffer.get(i)
+      if (frame) {
+        for (let ch = 0; ch < channelCount; ch++) {
+          channels[ch].push(ch < frame.values.length ? frame.values[ch] : 0)
+        }
+      }
+    }
+
+    return channels
+  }
+
+  // 从通道数组导入数据
+  const importChannels = (channelData: number[][], channelCount: number, savedSampleRate?: number) => {
+    console.log('[importChannels] 开始导入')
+    console.log('[importChannels] 通道数:', channelCount)
+    console.log('[importChannels] 缓冲区大小:', bufferSize.value)
+    console.log('[importChannels] 实际通道数据长度:', channelData.length)
+
+    clear()
+    if (channelData.length === 0) {
+      console.error('[importChannels] 通道数据为空')
+      return
+    }
+
+    const pointCount = channelData[0].length
+    const actualCount = Math.min(pointCount, bufferSize.value)
+    console.log('[importChannels] 数据点数:', pointCount, '实际导入:', actualCount)
+
+    // 将通道数据转换为 DataFrame 格式
+    for (let i = 0; i < actualCount; i++) {
+      const values: number[] = []
+      for (let ch = 0; ch < channelCount; ch++) {
+        const value = ch < channelData.length ? (channelData[ch][i] ?? 0) : 0
+        values.push(value)
+      }
+      addFrame(values)
+    }
+
+    // 恢复采样率
+    if (savedSampleRate && savedSampleRate > 0) {
+      sampleRate.value = savedSampleRate
+    }
+
+    console.log('[importChannels] 导入完成，缓冲区大小:', ringBuffer.size, '采样率:', sampleRate.value)
+  }
+
+  // 设置采样率
+  const setSampleRate = (rate: number) => {
+    sampleRate.value = rate
   }
 
   // 获取数据大小
@@ -482,6 +546,8 @@ export function useDataBuffer(initialSize: number = 10000) {
     clear,
     setBufferSize,
     importData,
-    exportData
+    exportData,
+    importChannels,
+    setSampleRate
   }
 }
