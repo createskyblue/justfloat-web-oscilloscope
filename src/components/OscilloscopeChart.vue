@@ -124,7 +124,7 @@ const adjustedInterval = computed(() => {
 // 创建图表配置
 const createOptions = (width: number, height: number): uPlot.Options => {
   const series: uPlot.Series[] = [
-    { label: '索引' } // X 轴
+    { label: '索引', show: false } // X 轴，不在图例中显示
   ]
 
   // 添加通道系列
@@ -199,7 +199,7 @@ const createOptions = (width: number, height: number): uPlot.Options => {
       height: 0
     },
     legend: {
-      show: true
+      show: false
     },
     hooks: {
       setSelect: [
@@ -259,7 +259,7 @@ const createOptions = (width: number, height: number): uPlot.Options => {
 // 创建 Minimap 配置（简化的预览图）
 const createMinimapOptions = (width: number, height: number): uPlot.Options => {
   const series: uPlot.Series[] = [
-    { label: '索引' } // X 轴
+    { label: '索引', show: false } // X 轴，不在图例中显示
   ]
 
   // 添加通道系列（只显示可见的通道）
@@ -343,11 +343,19 @@ const initChart = () => {
 
 // 初始化 Minimap
 const initMinimap = () => {
-  if (!minimapContainer.value || props.totalPoints === 0) return
+  // 延迟一帧确保 DOM 布局完成
+  requestAnimationFrame(() => {
+    if (!minimapContainer.value || props.totalPoints === 0) return
 
-  const rect = minimapContainer.value.getBoundingClientRect()
-  const width = rect.width || 800
-  const height = 60 // 固定高度
+    const rect = minimapContainer.value.getBoundingClientRect()
+    const width = rect.width || 800
+    const height = 60 // 固定高度
+
+    // 如果宽度还是无效，再延迟一帧
+    if (width < 100) {
+      setTimeout(() => initMinimap(), 50)
+      return
+    }
 
   // 获取所有数据的降采样版本用于预览
   const fullData = props.getChartData()
@@ -373,10 +381,11 @@ const initMinimap = () => {
   }
 
   const options = createMinimapOptions(width, height)
-  minimap.value = new uPlot(options, downsampledData as uPlot.AlignedData, minimapContainer.value)
+    minimap.value = new uPlot(options, downsampledData as uPlot.AlignedData, minimapContainer.value)
 
-  // 更新视口位置
-  updateMinimapViewport()
+    // 更新视口位置
+    updateMinimapViewport()
+  })
 }
 
 // 更新 Minimap 视口位置
