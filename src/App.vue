@@ -92,6 +92,13 @@ const handleConnect = async () => {
     parser.reset()
   } else {
     if (connectionType.value === 'websocket') {
+      // 在连接 WebSocket 之前检查协议兼容性
+      const checkResult = websocket.checkProtocolCompatibility(wsUrl.value)
+      if (!checkResult.compatible) {
+        // 显示警告对话框
+        alert(checkResult.reason || 'WebSocket 协议不兼容')
+        return
+      }
       await websocket.connect(wsUrl.value)
     } else if (connectionType.value === 'bluetooth') {
       await bluetooth.connect({

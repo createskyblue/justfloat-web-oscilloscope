@@ -33,6 +33,29 @@ An 8-channel Web oscilloscope with real-time 100 kHz waveform refresh, designed 
 - 支持文本和二进制数据格式
 - 可配置WebSocket服务器地址（默认：ws://localhost:8080）
 
+**重要：浏览器安全策略限制**
+
+由于浏览器的混合内容（Mixed Content）安全策略，WebSocket 连接必须遵循以下规则：
+
+- **HTTPS 页面**：只能使用 **WSS**（加密的 WebSocket）协议
+  - 例如：`wss://example.com:8080`
+  - 如果尝试使用 `ws://` 协议，连接会被浏览器阻止
+
+- **HTTP 页面**：可以使用 **WS** 或 **WSS** 协议
+  - 例如：`ws://localhost:8080` 或 `wss://example.com:8080`
+
+**解决方案：**
+
+1. 如果需要在 HTTPS 环境下使用 WebSocket：
+   - 将 WebSocket 服务器升级为 WSS（需要 SSL/TLS 证书）
+   - 使用反向代理（如 Nginx）配置 WSS
+
+2. 如果只需要本地测试：
+   - 使用 HTTP 协议访问本应用
+   - 本地开发时可以使用 `ws://` 协议
+
+应用会在连接时自动检测协议兼容性，如果不兼容会弹出提示对话框。
+
 ## 协议说明
 
 ### JustFloat协议

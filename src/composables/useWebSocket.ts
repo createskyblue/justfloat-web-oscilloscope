@@ -11,6 +11,28 @@ export function useWebSocket() {
   // WebSocket 始终支持
   const isSupported = () => true
 
+  // 检查 WebSocket URL 协议是否与当前页面协议匹配
+  const checkProtocolCompatibility = (wsUrl: string): { compatible: boolean; reason?: string } => {
+    // 获取当前页面协议
+    const pageProtocol = window.location.protocol // 'https:' 或 'http:'
+    const isHttpsPage = pageProtocol === 'https:'
+
+    // 从 WebSocket URL 中提取协议
+    const urlProtocol = wsUrl.toLowerCase().startsWith('wss:') ? 'wss:' : 'ws:'
+    const isWssUrl = urlProtocol === 'wss:'
+
+    // 检查兼容性
+    if (isHttpsPage && !isWssUrl) {
+      return {
+        compatible: false,
+        reason: `当前页面使用 HTTPS 协议，但您尝试连接的是 WS（非加密）协议。\n\n由于浏览器的安全策略（混合内容限制），HTTPS 页面无法连接到非加密的 WebSocket 服务器。\n\n解决方案：\n1. 将 WebSocket 服务器升级为 WSS（加密）协议\n2. 或者使用 HTTP 协议访问本页面`
+      }
+    }
+
+    // 如果是 HTTP 页面，两种协议都可以使用
+    return { compatible: true }
+  }
+
   // 连接 WebSocket
   const connect = async (url: string) => {
     // 如果已经连接，先断开
@@ -97,6 +119,7 @@ export function useWebSocket() {
     status,
     errorMessage,
     isSupported,
+    checkProtocolCompatibility,
     connect,
     disconnect,
     onData,
