@@ -13,7 +13,7 @@ import { useDataBuffer } from './composables/useDataBuffer'
 import { useChannelConfig } from './composables/useChannelConfig'
 import { useStorage } from './composables/useStorage'
 import type { AppConfig, ExportData, ProtocolType, ConnectionType } from './types'
-import { downloadJson, readJsonFile } from './utils/helpers'
+import { downloadJson, readJsonFile } from '@/utils/helpers'
 
 // 初始化存储
 const { loadConfig, saveConfig } = useStorage()
@@ -58,7 +58,7 @@ const toggleTheme = () => {
 
 // 配置状态
 const baudRate = ref(savedConfig.baudRate)
-const bufferSize = ref(savedConfig.bufferSize)
+const bufferSize = ref<number>(savedConfig.bufferSize)
 const protocol = ref<ProtocolType>(savedConfig.protocol || 'justfloat')
 const connectionType = ref<ConnectionType>(savedConfig.connectionType || 'serial')
 const wsUrl = ref(savedConfig.wsUrl || 'ws://localhost:8080')
@@ -142,7 +142,7 @@ watch(() => parser.channelCount.value, (count) => {
 })
 
 // 保存配置
-watch([baudRate, bufferSize, protocol, connectionType, wsUrl, btServiceUUID, btCharacteristicUUID, () => channelConfig.channels.value], () => {
+watch([() => baudRate.value, () => bufferSize.value, () => protocol.value, () => connectionType.value, () => wsUrl.value, () => btServiceUUID.value, () => btCharacteristicUUID.value, () => channelConfig.channels.value], () => {
   const config: AppConfig = {
     baudRate: baudRate.value,
     bufferSize: bufferSize.value,
@@ -337,6 +337,7 @@ onUnmounted(() => {
       :total-points="buffer.totalPoints.value"
       :frame-count="parser.frameCount.value"
       :channel-count="parser.channelCount.value"
+      :buffer-size="bufferSize"
       :is-dark="isDark"
     />
   </div>

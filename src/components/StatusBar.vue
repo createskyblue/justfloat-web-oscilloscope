@@ -1,14 +1,16 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ConnectionStatus } from '@/types'
 import { formatLargeNumber, formatFrequency } from '@/utils/helpers'
 
-defineProps<{
+const props = defineProps<{
   status: ConnectionStatus
   errorMessage: string
   sampleRate: number
   totalPoints: number
   frameCount: number
   channelCount: number
+  bufferSize: number
   isDark: boolean
 }>()
 
@@ -25,6 +27,20 @@ const statusText = {
   connected: '已连接',
   error: '连接错误'
 }
+
+// 计算缓冲区占用百分比
+const bufferPercentage = computed(() => {
+  if (props.bufferSize <= 0) return 0
+  return Math.min(100, (props.totalPoints / props.bufferSize) * 100)
+})
+
+// 根据占用百分比确定颜色
+const bufferColorClass = computed(() => {
+  const pct = bufferPercentage.value
+  if (pct < 50) return 'bg-green-500'
+  if (pct < 80) return 'bg-yellow-500'
+  return 'bg-red-500'
+})
 </script>
 
 <template>
@@ -75,6 +91,21 @@ const statusText = {
       <!-- 采样率 -->
       <div v-if="sampleRate > 0">
         采样率: <span :class="['font-mono', isDark ? 'text-gray-300' : 'text-gray-700']">{{ formatFrequency(sampleRate) }}</span>
+      </div>
+
+      <!-- 缓冲区占用 -->
+      <div class="flex items-center gap-2">
+        <span :class="isDark ? 'text-gray-400' : 'text-gray-600'">缓冲区:</span>
+        <div :class="['flex items-center gap-1.5', isDark ? 'text-gray-300' : 'text-gray-700']">
+          <div :class="['w-24 h-1.5 rounded-full overflow-hidden', isDark ? 'bg-gray-700' : 'bg-gray-300']">
+            <div
+              class="h-full transition-all duration-300"
+              :class="bufferColorClass"
+              :style="{ width: `${bufferPercentage}%` }"
+            ></div>
+          </div>
+          <span class="font-mono text-xs">{{ bufferPercentage.toFixed(0) }}%</span>
+        </div>
       </div>
 
       <!-- 数据点数 -->
