@@ -3,6 +3,7 @@ import { ref, watch, onUnmounted, provide, computed, onMounted } from 'vue'
 import HeaderBar from './components/HeaderBar.vue'
 import SidePanel from './components/SidePanel.vue'
 import OscilloscopeChart from './components/OscilloscopeChart.vue'
+import SelectionStatsPanel from './components/SelectionStatsPanel.vue'
 import StatusBar from './components/StatusBar.vue'
 import { useSerial } from './composables/useSerial'
 import { useWebSocket } from './composables/useWebSocket'
@@ -79,6 +80,9 @@ const currentConnection = computed(() => {
 // 光标值状态
 const cursorValues = ref<number[] | null>(null)
 const cursorIndex = ref<number | null>(null)
+
+// 选区统计状态
+const selectionStats = ref<import('./types').SelectionStats | null>(null)
 
 // 初始化协议
 parser.setProtocol(protocol.value)
@@ -301,18 +305,27 @@ onUnmounted(() => {
       <!-- 图表区域 -->
       <div class="flex-1 min-w-0 p-4">
         <OscilloscopeChart
-          :data="buffer.data.value"
-          :data-version="buffer.dataVersion.value"
           :channels="channelConfig.channels.value"
           :channel-count="parser.channelCount.value"
           :sample-rate="buffer.sampleRate.value"
           :total-points="buffer.totalPoints.value"
-          :get-chart-data="() => buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
-          :get-chart-data-in-range="(start: number, end: number) => buffer.getChartDataInRange(start, end, parser.channelCount.value, channelConfig.getCoefficients())"
-          :get-selection-stats="(start: number, end: number) => buffer.getSelectionStats(start, end, parser.channelCount.value, channelConfig.getCoefficients())"
+          :chart-data="buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
+          :full-data="buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :is-dark="isDark"
+          @selection-change="selectionStats = $event"
           @cursor-values="handleCursorValues"
-        />
+        >
+          <!-- 选区统计面板插槽 -->
+          <template #stats-panel="{ stats, resetZoom }">
+            <SelectionStatsPanel
+              v-if="stats"
+              :stats="stats"
+              :channels="channelConfig.channels.value"
+              :is-dark="isDark"
+              @close="resetZoom"
+            />
+          </template>
+        </OscilloscopeChart>
       </div>
     </div>
 

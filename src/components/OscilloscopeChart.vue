@@ -4,19 +4,16 @@ import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import type { ChannelConfig, SelectionStats } from '@/types'
 import { CHANNEL_COLORS } from '@/types'
-import { formatNumber, formatTime } from '@/utils/helpers'
 
 const props = defineProps<{
-  data: any
-  dataVersion: number
   channels: ChannelConfig[]
   channelCount: number
   sampleRate: number
-  getChartData: () => (Float64Array | number[])[] | null
-  getChartDataInRange: (start: number, end: number) => (Float64Array | number[])[] | null
-  getSelectionStats: (start: number, end: number) => SelectionStats | null
   totalPoints: number
   isDark: boolean
+  // 数据接口 - 直接传递数据而不是函数
+  chartData: (Float64Array | number[])[] | null
+  fullData: (Float64Array | number[])[] | null  // 用于 Minimap 的完整数据
 }>()
 
 const emit = defineEmits<{
@@ -51,47 +48,83 @@ const zoomHistory = ref<{ start: number; end: number }[]>([])
 // 光标值状态
 const cursorIndex = ref<number | null>(null)
 
-// 模态框拖动状态
-const panelRef = ref<HTMLDivElement | null>(null)
-const panelPosition = ref({ x: 8, y: 8 }) // 默认左上角
-const isDragging = ref(false)
-const dragOffset = ref({ x: 0, y: 0 })
+// 计算选区统计数据的辅助函数
+const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionStats | null => {
+  if (!props.chartData || props.chartData.length === 0) return null
 
-// 开始拖动
-const startDrag = (e: MouseEvent) => {
-  if (!panelRef.value) return
-  isDragging.value = true
-  const rect = panelRef.value.getBoundingClientRect()
-  dragOffset.value = {
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top
+  const data = props.chartData
+  const xData = data[0] as number[]
+  if (!xData || xData.length === 0) return null
+
+  const startIndex = Math.max(0, Math.floor(startIdx))
+  const endIndex = Math.min(xData.length - 1, Math.floor(endIdx))
+
+  if (startIndex >= endIndex) return null
+
+  const pointCount = endIndex - startIndex + 1
+  const startValue = xData[startIndex]
+  const endValue = xData[endIndex]
+  const duration = endValue - startValue
+  const frequency = pointCount / duration * props.sampleRate
+
+  const channels = props.channels.slice(0, props.channelCount).map((channel, idx) => {
+    const seriesIdx = idx + 1
+    const seriesData = data[seriesIdx] as number[]
+    if (!seriesData) return { id: idx, min: 0, max: 0, avg: 0 }
+
+    let sum = 0
+    let min = Infinity
+    let max = -Infinity
+
+    for (let i = startIndex; i <= endIndex; i++) {
+      const val = seriesData[i] * channel.coefficient
+      sum += val
+      if (val < min) min = val
+      if (val > max) max = val
+    }
+
+    return {
+      id: idx,
+      min,
+      max,
+      avg: sum / pointCount
+    }
+  }).filter(ch => ch !== undefined) as SelectionStats['channels']
+
+  return {
+    startIndex,
+    endIndex,
+    pointCount,
+    duration,
+    frequency,
+    channels
   }
-  document.addEventListener('mousemove', onDrag)
-  document.addEventListener('mouseup', stopDrag)
 }
 
-// 拖动中
-const onDrag = (e: MouseEvent) => {
-  if (!isDragging.value || !chartContainer.value) return
-  const containerRect = chartContainer.value.getBoundingClientRect()
-  const panelRect = panelRef.value?.getBoundingClientRect()
-  if (!panelRect) return
+// 获取范围内数据的辅助函数
+const getDataInRange = (startIdx: number, endIdx: number): (Float64Array | number[])[] | null => {
+  if (!props.fullData || props.fullData.length === 0) return null
 
-  let newX = e.clientX - containerRect.left - dragOffset.value.x
-  let newY = e.clientY - containerRect.top - dragOffset.value.y
+  const result: (Float64Array | number[])[] = []
+  const start = Math.max(0, Math.floor(startIdx))
+  const end = Math.min(props.fullData[0].length - 1, Math.floor(endIdx))
 
-  // 限制在容器内
-  newX = Math.max(0, Math.min(newX, containerRect.width - panelRect.width))
-  newY = Math.max(0, Math.min(newY, containerRect.height - panelRect.height))
+  // 边界检查：如果范围无效，返回 null
+  if (start >= end || start < 0 || end >= props.fullData[0].length) {
+    return null
+  }
 
-  panelPosition.value = { x: newX, y: newY }
-}
+  for (let i = 0; i < props.fullData.length; i++) {
+    const series = props.fullData[i]
+    if (Array.isArray(series)) {
+      result.push(series.slice(start, end + 1))
+    } else {
+      // TypedArray
+      result.push(series.subarray(start, end + 1))
+    }
+  }
 
-// 停止拖动
-const stopDrag = () => {
-  isDragging.value = false
-  document.removeEventListener('mousemove', onDrag)
-  document.removeEventListener('mouseup', stopDrag)
+  return result
 }
 
 // 刷新相关
@@ -222,7 +255,7 @@ const createOptions = (width: number, height: number): uPlot.Options => {
               }
 
               // 计算选区统计
-              const stats = props.getSelectionStats(startIdx, endIdx)
+              const stats = calculateSelectionStats(startIdx, endIdx)
               selectionStats.value = stats
               emit('selection-change', stats)
 
@@ -367,7 +400,7 @@ const initMinimap = (sync = false) => {
     }
 
   // 获取所有数据的降采样版本用于预览
-  const fullData = props.getChartData()
+  const fullData = props.fullData
   if (!fullData || fullData[0].length === 0) return
 
   // 对数据进行降采样以适应小尺寸
@@ -467,7 +500,7 @@ const onViewportDrag = (e: MouseEvent) => {
     isZoomed.value = true
 
     // 更新选区统计
-    const stats = props.getSelectionStats(startIdx, endIdx)
+    const stats = calculateSelectionStats(startIdx, endIdx)
     selectionStats.value = stats
     emit('selection-change', stats)
   }
@@ -572,7 +605,7 @@ const onEdgeDrag = (e: MouseEvent) => {
     isZoomed.value = true
 
     // 更新选区统计
-    const stats = props.getSelectionStats(startIdx, endIdx)
+    const stats = calculateSelectionStats(startIdx, endIdx)
     selectionStats.value = stats
     emit('selection-change', stats)
   }
@@ -605,9 +638,9 @@ const updateChart = () => {
 
     if (isZoomed.value && zoomRange.value) {
       // 显示缩放范围内的数据
-      chartData = props.getChartDataInRange(zoomRange.value.start, zoomRange.value.end)
+      chartData = getDataInRange(zoomRange.value.start, zoomRange.value.end)
     } else {
-      chartData = props.getChartData()
+      chartData = props.chartData
     }
 
     // 如果没有数据，显示空图表
@@ -667,7 +700,7 @@ const undoZoom = () => {
     if (prevZoom) {
       zoomRange.value = prevZoom
       // 重新计算选区统计
-      const stats = props.getSelectionStats(prevZoom.start, prevZoom.end)
+      const stats = calculateSelectionStats(prevZoom.start, prevZoom.end)
       selectionStats.value = stats
       emit('selection-change', stats)
       return
@@ -754,6 +787,8 @@ watch(() => props.channelCount, (newCount, oldCount) => {
 watch(() => props.isDark, async () => {
   // 主题变化时重新创建图表以应用新颜色
   if (chart.value) {
+    // 重置缩放状态，避免旧缩放范围指向错误数据
+    resetZoom()
     destroyChart()
     await initChart()
     rafId = requestAnimationFrame(updateChart)
@@ -765,7 +800,7 @@ watch(() => props.isDark, async () => {
 watch(() => props.channels, () => {
   if (isZoomed.value && zoomRange.value) {
     // 重新计算选区统计
-    const stats = props.getSelectionStats(zoomRange.value.start, zoomRange.value.end)
+    const stats = calculateSelectionStats(zoomRange.value.start, zoomRange.value.end)
     selectionStats.value = stats
     emit('selection-change', stats)
   }
@@ -780,20 +815,41 @@ watch(() => props.totalPoints, (newVal, oldVal) => {
       minimap.value = null
     }
     // 重置缩放状态
-    isZoomed.value = false
-    zoomRange.value = null
-    zoomHistory.value = []
-    selectionStats.value = null
-    emit('selection-change', null)
+    resetZoom()
+  }
+  // 数据长度发生重大变化时（超过10%差异），也重置缩放状态
+  if (oldVal > 0 && newVal > 0) {
+    const changeRatio = Math.abs(newVal - oldVal) / oldVal
+    if (changeRatio > 0.1) {
+      // 数据量变化超过10%，重置缩放以避免索引越界
+      resetZoom()
+    }
   }
   // 从无数据变为有数据时，定时刷新器会自动初始化 minimap
+})
+
+// 监听数据源引用变化，重置缩放状态
+watch([() => props.chartData, () => props.fullData], ([newChartData, newFullData]) => {
+  // 如果数据源从 null 变为有数据，或数据长度发生变化，重置缩放
+  if (newChartData && newFullData) {
+    const fullLength = newFullData[0]?.length || 0
+
+    // 如果当前有缩放状态，检查缩放范围是否仍然有效
+    if (isZoomed.value && zoomRange.value) {
+      const { start, end } = zoomRange.value
+      // 如果缩放范围超出新数据范围，重置缩放
+      if (start >= fullLength || end > fullLength) {
+        resetZoom()
+      }
+    }
+  }
 })
 
 // 更新 Minimap 数据
 const updateMinimapData = () => {
   if (!minimapContainer.value || props.totalPoints === 0) return
 
-  const fullData = props.getChartData()
+  const fullData = props.fullData
   if (!fullData || fullData[0].length === 0) return
 
   // 如果 minimap 不存在，尝试重新初始化
@@ -868,9 +924,6 @@ onUnmounted(() => {
   }
 
   window.removeEventListener('resize', handleResize)
-  // 确保清理拖动事件
-  document.removeEventListener('mousemove', onDrag)
-  document.removeEventListener('mouseup', stopDrag)
   // 清理视口拖动事件
   document.removeEventListener('mousemove', onViewportDrag)
   document.removeEventListener('mouseup', stopViewportDrag)
@@ -924,93 +977,10 @@ defineExpose({
       </div>
     </div>
 
-    <!-- 选区统计面板 - 可拖动，垂直布局 -->
-    <div
-      v-if="selectionStats"
-      ref="panelRef"
-      :class="['absolute backdrop-blur rounded-lg p-3 z-10 border max-h-[80%] overflow-y-auto shadow-xl', isDark ? 'bg-gray-900/95 border-gray-700' : 'bg-white/98 border-gray-400 shadow-lg', { 'cursor-grabbing': isDragging }]"
-      :style="{
-        left: panelPosition.x + 'px',
-        top: panelPosition.y + 'px',
-        minWidth: '200px',
-        maxWidth: '280px'
-      }"
-    >
-      <!-- 拖动手柄 -->
-      <div
-        class="flex items-center justify-between mb-2 select-none cursor-grab"
-        :class="{ 'cursor-grabbing': isDragging }"
-        @mousedown="startDrag"
-      >
-        <div class="flex items-center gap-2">
-          <svg :class="['w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-600']" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM8 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM14 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
-          </svg>
-          <h3 :class="['text-sm font-semibold', isDark ? 'text-white' : 'text-gray-900']">选区数据分析</h3>
-        </div>
-        <button
-          :class="['p-1', isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900']"
-          @click.stop="resetZoom"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <!-- 基本信息 - 紧凑布局 -->
-      <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
-        <div>
-          <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">采样点</span>
-          <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ selectionStats.pointCount?.toLocaleString() }}</div>
-        </div>
-        <div>
-          <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">时长</span>
-          <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ formatTime(selectionStats.duration) }}</div>
-        </div>
-        <div>
-          <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">频率</span>
-          <div :class="['font-mono', isDark ? 'text-white' : 'text-gray-900']">{{ formatNumber(selectionStats.frequency, 0) }}Hz</div>
-        </div>
-        <div>
-          <span :class="isDark ? 'text-gray-500' : 'text-gray-600'">范围</span>
-          <div :class="['font-mono text-xs', isDark ? 'text-white' : 'text-gray-900']">{{ selectionStats.startIndex }}-{{ selectionStats.endIndex }}</div>
-        </div>
-      </div>
-
-      <!-- 通道统计 - 垂直堆叠 -->
-      <div :class="['border-t pt-2 space-y-2', isDark ? 'border-gray-700' : 'border-gray-300']">
-        <div
-          v-for="ch in selectionStats.channels"
-          :key="ch.id"
-          :class="['rounded p-2 border', isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-300 shadow-sm']"
-        >
-          <div class="flex items-center gap-1.5 mb-1.5">
-            <span
-              class="w-2 h-2 rounded-full flex-shrink-0"
-              :style="{ backgroundColor: channels[ch.id]?.color || CHANNEL_COLORS[ch.id % CHANNEL_COLORS.length] }"
-            ></span>
-            <span :class="['text-xs font-medium truncate', isDark ? 'text-gray-300' : 'text-gray-800']">
-              {{ channels[ch.id]?.name || `通道 ${ch.id + 1}` }}
-            </span>
-          </div>
-          <div class="grid grid-cols-3 gap-2 text-xs">
-            <div>
-              <div :class="isDark ? 'text-gray-600' : 'text-gray-600'">最小</div>
-              <div class="text-green-500 font-mono">{{ formatNumber(ch.min) }}</div>
-            </div>
-            <div>
-              <div :class="isDark ? 'text-gray-600' : 'text-gray-600'">最大</div>
-              <div class="text-red-500 font-mono">{{ formatNumber(ch.max) }}</div>
-            </div>
-            <div>
-              <div :class="isDark ? 'text-gray-600' : 'text-gray-600'">平均</div>
-              <div class="text-blue-500 font-mono">{{ formatNumber(ch.avg) }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- 选区统计面板插槽 -->
+    <slot name="stats-panel" :stats="selectionStats" :reset-zoom="resetZoom">
+      <!-- 默认为空，由父组件提供 -->
+    </slot>
 
     <!-- 无数据提示 -->
     <div
