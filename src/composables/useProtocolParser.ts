@@ -26,11 +26,12 @@ export function useProtocolParser() {
   let onFrameCallback: ((values: number[]) => void) | null = null
   let onFramesBatchCallback: ((frames: number[][]) => void) | null = null
 
-  // 批量帧缓存机制
-  // 动态批量大小：根据采样率调整，目标是每批覆盖约 10ms 的数据
-  // 这样可以保证低采样率时也能平滑显示
-  const BATCH_SIZE = 10  // 固定每批 10 帧（约 10ms @ 1kHz，或 25ms @ 400Hz）
-  const IDLE_FLUSH_DELAY = 16  // 空闲16ms后刷新（约60fps）
+  // 动态批量机制：基于时间而非固定帧数
+  // 目标：以约 30fps 的频率发送批量（约 33ms 一批），保证图表流畅
+  // 无论采样率是多少，都维持 30fps 的刷新
+  const TARGET_BATCH_INTERVAL_MS = 33  // 每 33ms 发送一批（约 30fps）
+  let lastBatchTime = 0
+  const IDLE_FLUSH_DELAY = 33  // 空闲33ms后刷新（约30fps）
   let framesBatch: number[][] = []
   let idleFlushTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -45,6 +46,7 @@ export function useProtocolParser() {
 
     const batch = framesBatch
     framesBatch = []
+    lastBatchTime = performance.now()  // 更新最后发送时间
 
     if (onFramesBatchCallback) {
       onFramesBatchCallback(batch)
@@ -74,8 +76,11 @@ export function useProtocolParser() {
       channelCount.value = values.length
     }
 
-    if (framesBatch.length >= BATCH_SIZE) {
+    // 基于时间的批量刷新：每 16ms 发送一批（约 60fps）
+    const now = performance.now()
+    if (now - lastBatchTime >= TARGET_BATCH_INTERVAL_MS) {
       flushBatch()
+      lastBatchTime = now
     } else {
       scheduleIdleFlush()
     }
