@@ -1,9 +1,25 @@
 /**
  * 格式化数字，保留指定小数位
+ * 如果整数部分 >= 7 位，不显示小数
+ * 否则确保总位数不超过 7 位（不包括小数点）
  */
 export function formatNumber(value: number, decimals: number = 6): string {
   if (!isFinite(value)) return '-'
-  return value.toFixed(decimals)
+
+  const absValue = Math.abs(value)
+  const integerPart = Math.floor(absValue)
+  const integerDigits = integerPart === 0 ? 1 : Math.floor(Math.log10(integerPart)) + 1
+
+  // 如果整数部分已经有 7 位或更多，不显示小数
+  if (integerDigits >= 7) {
+    return value.toFixed(0)
+  }
+
+  // 计算可以保留的小数位数
+  const maxDecimals = Math.max(0, 7 - integerDigits)
+  const finalDecimals = Math.min(decimals, maxDecimals)
+
+  return value.toFixed(finalDecimals)
 }
 
 /**
