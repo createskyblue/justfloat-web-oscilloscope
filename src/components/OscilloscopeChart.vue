@@ -208,7 +208,8 @@ const createOptions = (width: number, height: number): uPlot.Options => {
         grid: { stroke: gridColor, width: 1 },
         ticks: { stroke: ticksColor, width: 1 },
         font: '11px system-ui',
-        labelFont: '12px system-ui'
+        labelFont: '12px system-ui',
+        size: 70 // Y轴宽度，确保能显示至少7个数字
       }
     ],
     cursor: {
