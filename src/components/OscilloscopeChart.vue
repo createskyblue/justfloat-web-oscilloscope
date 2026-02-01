@@ -670,12 +670,14 @@ const updateChart = () => {
     }
 
     // 更新通道可见性
+    let visibilityChanged = false
     props.channels.forEach((channel, index) => {
       const seriesIndex = index + 1
       if (chart.value && chart.value.series[seriesIndex]) {
         const currentShow = chart.value.series[seriesIndex].show
         if (currentShow !== channel.visible) {
           chart.value.setSeries(seriesIndex, { show: channel.visible })
+          visibilityChanged = true
         }
       }
     })
@@ -684,6 +686,11 @@ const updateChart = () => {
     chart.value.setData(chartData as uPlot.AlignedData)
 
     // 同步更新 Minimap（与主图表使用同一个刷新循环，保证稳定性）
+    // 如果通道可见性发生变化，需要重新初始化 minimap 以更新 series 配置
+    if (visibilityChanged && minimap.value) {
+      minimap.value.destroy()
+      minimap.value = null
+    }
     updateMinimapData()
     updateMinimapViewport()
   } finally {
