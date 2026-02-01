@@ -27,8 +27,10 @@ export function useProtocolParser() {
   let onFramesBatchCallback: ((frames: number[][]) => void) | null = null
 
   // 批量帧缓存机制
-  const BATCH_SIZE = 100          // 达到此数量时立即刷新
-  const IDLE_FLUSH_DELAY = 16     // 空闲16ms后刷新（约60fps）
+  // 动态批量大小：根据采样率调整，目标是每批覆盖约 10ms 的数据
+  // 这样可以保证低采样率时也能平滑显示
+  const BATCH_SIZE = 10  // 固定每批 10 帧（约 10ms @ 1kHz，或 25ms @ 400Hz）
+  const IDLE_FLUSH_DELAY = 16  // 空闲16ms后刷新（约60fps）
   let framesBatch: number[][] = []
   let idleFlushTimer: ReturnType<typeof setTimeout> | null = null
 

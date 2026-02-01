@@ -93,6 +93,12 @@ export function useDataBuffer(initialSize: number = 10000) {
   let cachedStats: Map<number, { stats: ChannelStats; timestamp: number }> = new Map()
   const STATS_UPDATE_INTERVAL = 100 // 每100ms更新一次统计
 
+  // 缓存图表数据，避免每次渲染都重新创建 TypedArray
+  let cachedChartData: (Float64Array | number[])[] | null = null
+  let cachedChartDataVersion = -1
+  let cachedFullData: (Float64Array | number[])[] | null = null
+  let cachedFullDataVersion = -1
+
   // 用于计算采样率的变量
   let sampleCount = 0
   let sampleRateUpdateTime = 0
@@ -304,7 +310,17 @@ export function useDataBuffer(initialSize: number = 10000) {
   const getChartData = (channelCount: number, coefficients: number[] = []) => {
     dataVersion.value // 依赖版本号
     const totalSize = ringBuffer.size
-    if (totalSize === 0) return null
+
+    // 检查缓存
+    if (cachedChartData && cachedChartDataVersion === dataVersion.value) {
+      return cachedChartData
+    }
+
+    if (totalSize === 0) {
+      cachedChartData = null
+      cachedChartDataVersion = dataVersion.value
+      return null
+    }
 
     // 根据数据量动态调整目标点数
     let targetPoints: number
@@ -369,7 +385,10 @@ export function useDataBuffer(initialSize: number = 10000) {
 
       // 如果实际输出少于预期，调整数组大小
       if (outIdx < outputSize) {
-        return [xData.slice(0, outIdx), ...series.map(s => s.slice(0, outIdx))]
+        const result = [xData.slice(0, outIdx), ...series.map(s => s.slice(0, outIdx))]
+        cachedChartData = result
+        cachedChartDataVersion = dataVersion.value
+        return result
       }
     } else {
       // 普通采样或全量数据
@@ -388,7 +407,10 @@ export function useDataBuffer(initialSize: number = 10000) {
       }
     }
 
-    return [xData, ...series]
+    const result = [xData, ...series]
+    cachedChartData = result
+    cachedChartDataVersion = dataVersion.value
+    return result
   }
 
   // 获取指定范围的数据（用于框选缩放后的详细显示）
@@ -432,7 +454,17 @@ export function useDataBuffer(initialSize: number = 10000) {
   // 获取全量数据（不降采样，用于缩放功能）
   const getFullChartData = (channelCount: number, coefficients: number[] = []) => {
     const totalSize = ringBuffer.size
-    if (totalSize === 0) return null
+
+    // 检查缓存
+    if (cachedFullData && cachedFullDataVersion === dataVersion.value) {
+      return cachedFullData
+    }
+
+    if (totalSize === 0) {
+      cachedFullData = null
+      cachedFullDataVersion = dataVersion.value
+      return null
+    }
 
     // 返回全量数据，不降采样
     const outputSize = totalSize
@@ -454,13 +486,20 @@ export function useDataBuffer(initialSize: number = 10000) {
       }
     }
 
-    return [xData, ...series]
+    const result = [xData, ...series]
+    cachedFullData = result
+    cachedFullDataVersion = dataVersion.value
+    return result
   }
 
   // 清空数据
   const clear = () => {
     ringBuffer.clear()
     cachedStats.clear()
+    cachedChartData = null
+    cachedChartDataVersion = -1
+    cachedFullData = null
+    cachedFullDataVersion = -1
     data.value = []
     dataVersion.value++
     sampleRate.value = 0
@@ -532,15 +571,27 @@ export function useDataBuffer(initialSize: number = 10000) {
     const actualCount = Math.min(pointCount, bufferSize.value)
     console.log('[importChannels] 数据点数:', pointCount, '实际导入:', actualCount)
 
-    // 将通道数据转换为 DataFrame 格式
+    // 批量导入时，直接操作 ringBuffer，避免频繁触发更新
+    const frames: DataFrame[] = []
+    const now = performance.now()
+
     for (let i = 0; i < actualCount; i++) {
       const values: number[] = []
       for (let ch = 0; ch < channelCount; ch++) {
         const value = ch < channelData.length ? (channelData[ch][i] ?? 0) : 0
         values.push(value)
       }
-      addFrame(values)
+      frames.push({
+        timestamp: now + (i / (savedSampleRate || 1)) * 1000,
+        values
+      })
     }
+
+    // 一次性批量添加到 ringBuffer
+    ringBuffer.pushBatch(frames)
+
+    // 导入完成后，触发一次更新
+    scheduleUpdate()
 
     // 恢复采样率
     if (savedSampleRate && savedSampleRate > 0) {
