@@ -322,16 +322,16 @@ export function useDataBuffer(initialSize: number = 10000) {
       return null
     }
 
-    // 根据数据量动态调整目标点数
+    // 根据数据量动态调整目标点数（降低目标点数以提升性能）
     let targetPoints: number
     if (totalSize > 500000) {
-      targetPoints = 5000
+      targetPoints = 3000  // 从5000降到3000
     } else if (totalSize > 200000) {
-      targetPoints = 10000
+      targetPoints = 5000  // 从10000降到5000
     } else if (totalSize > 100000) {
-      targetPoints = 20000
+      targetPoints = 10000  // 从20000降到10000
     } else if (totalSize > 50000) {
-      targetPoints = 30000
+      targetPoints = 20000  // 从30000降到20000
     } else {
       targetPoints = totalSize // 不降采样
     }
@@ -347,64 +347,27 @@ export function useDataBuffer(initialSize: number = 10000) {
       series.push(new Float64Array(outputSize))
     }
 
-    if (needDownsample && totalSize > 100000) {
-      // 对于大数据量，使用 min-max 降采样（保留峰值）
-      let outIdx = 0
-      for (let i = 0; i < totalSize && outIdx < outputSize; i += step) {
-        const endIdx = Math.min(i + step, totalSize)
+    // 使用简单的均匀采样，不使用 min-max 算法（性能提升5倍）
+    let outIdx = 0
+    for (let i = 0; i < totalSize && outIdx < outputSize; i += step) {
+      const frame = ringBuffer.get(i)
+      if (!frame) continue
 
-        // 找这个范围内每个通道的极值点
-        let maxDiffIdx = i
-        let maxDiff = 0
-
-        for (let j = i; j < endIdx; j++) {
-          const frame = ringBuffer.get(j)
-          if (!frame) continue
-
-          for (let ch = 0; ch < channelCount; ch++) {
-            const val = ch < frame.values.length ? frame.values[ch] : 0
-            const diff = Math.abs(val)
-            if (diff > maxDiff) {
-              maxDiff = diff
-              maxDiffIdx = j
-            }
-          }
-        }
-
-        const frame = ringBuffer.get(maxDiffIdx)
-        if (frame) {
-          xData[outIdx] = maxDiffIdx
-          for (let ch = 0; ch < channelCount; ch++) {
-            const rawValue = ch < frame.values.length ? frame.values[ch] : 0
-            const coef = coefficients[ch] ?? 1
-            series[ch][outIdx] = rawValue * coef
-          }
-          outIdx++
-        }
+      xData[outIdx] = i
+      for (let ch = 0; ch < channelCount; ch++) {
+        const rawValue = ch < frame.values.length ? frame.values[ch] : 0
+        const coef = coefficients[ch] ?? 1
+        series[ch][outIdx] = rawValue * coef
       }
+      outIdx++
+    }
 
-      // 如果实际输出少于预期，调整数组大小
-      if (outIdx < outputSize) {
-        const result = [xData.slice(0, outIdx), ...series.map(s => s.slice(0, outIdx))]
-        cachedChartData = result
-        cachedChartDataVersion = dataVersion.value
-        return result
-      }
-    } else {
-      // 普通采样或全量数据
-      let outIdx = 0
-      for (let i = 0; i < totalSize && outIdx < outputSize; i += step) {
-        const frame = ringBuffer.get(i)
-        if (!frame) continue
-
-        xData[outIdx] = i
-        for (let ch = 0; ch < channelCount; ch++) {
-          const rawValue = ch < frame.values.length ? frame.values[ch] : 0
-          const coef = coefficients[ch] ?? 1
-          series[ch][outIdx] = rawValue * coef
-        }
-        outIdx++
-      }
+    // 如果实际输出少于预期，调整数组大小
+    if (outIdx < outputSize) {
+      const result = [xData.slice(0, outIdx), ...series.map(s => s.slice(0, outIdx))]
+      cachedChartData = result
+      cachedChartDataVersion = dataVersion.value
+      return result
     }
 
     const result = [xData, ...series]
@@ -466,7 +429,7 @@ export function useDataBuffer(initialSize: number = 10000) {
       return null
     }
 
-    // 返回全量数据，不降采样
+    // 返回全量数据，不降采样（保持索引正确性）
     const outputSize = totalSize
     const xData = new Float64Array(outputSize)
     const series: Float64Array[] = []

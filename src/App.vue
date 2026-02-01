@@ -132,6 +132,9 @@ bluetooth.onData(handleData)
 // 协议帧批量回调（高性能）
 parser.onFramesBatch((frames) => {
   buffer.addFrames(frames)
+  // 根据缓冲区使用率动态调整批量策略
+  const usage = buffer.totalPoints.value / buffer.bufferSize.value
+  parser.setBufferUsage(usage)
 })
 
 // 当通道数变化时更新配置
@@ -139,6 +142,12 @@ watch(() => parser.channelCount.value, (count) => {
   if (count > 0) {
     channelConfig.ensureChannels(count)
   }
+})
+
+// 监听缓冲区使用率变化，动态调整批量策略
+watch(() => buffer.totalPoints.value, (totalPoints) => {
+  const usage = totalPoints / buffer.bufferSize.value
+  parser.setBufferUsage(usage)
 })
 
 // 保存配置
@@ -309,8 +318,8 @@ onUnmounted(() => {
           :channel-count="parser.channelCount.value"
           :sample-rate="buffer.sampleRate.value"
           :total-points="buffer.totalPoints.value"
-          :chart-data="buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
-          :full-data="buffer.getFullChartData(parser.channelCount.value, channelConfig.getCoefficients())"
+          :get-chart-data="() => buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
+          :get-full-chart-data="() => buffer.getFullChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :is-dark="isDark"
           @selection-change="selectionStats = $event"
           @cursor-values="handleCursorValues"

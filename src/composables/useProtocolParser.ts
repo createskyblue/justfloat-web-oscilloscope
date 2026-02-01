@@ -26,14 +26,42 @@ export function useProtocolParser() {
   let onFrameCallback: ((values: number[]) => void) | null = null
   let onFramesBatchCallback: ((frames: number[][]) => void) | null = null
 
-  // 动态批量机制：基于时间而非固定帧数
-  // 目标：以约 30fps 的频率发送批量（约 33ms 一批），保证图表流畅
-  // 无论采样率是多少，都维持 30fps 的刷新
-  const TARGET_BATCH_INTERVAL_MS = 33  // 每 33ms 发送一批（约 30fps）
+  // 动态批量机制：根据缓冲区使用量智能调整批量大小
+  let TARGET_BATCH_INTERVAL_MS = 16  // 默认 16ms（约 60fps）
   let lastBatchTime = 0
-  const IDLE_FLUSH_DELAY = 33  // 空闲33ms后刷新（约30fps）
+  let IDLE_FLUSH_DELAY = 16  // 空闲刷新延迟
   let framesBatch: number[][] = []
   let idleFlushTimer: ReturnType<typeof setTimeout> | null = null
+
+  // 缓冲区使用率（由外部设置）
+  let bufferUsageRatio = 0
+
+  // 动态调整批量策略（根据缓冲区使用量）
+  const adjustBatchStrategy = () => {
+    if (bufferUsageRatio > 0.8) {
+      // 缓冲区使用超过80%，大幅降低刷新频率
+      TARGET_BATCH_INTERVAL_MS = 100  // 10fps
+      IDLE_FLUSH_DELAY = 100
+    } else if (bufferUsageRatio > 0.5) {
+      // 缓冲区使用超过50%，降低刷新频率
+      TARGET_BATCH_INTERVAL_MS = 50  // 20fps
+      IDLE_FLUSH_DELAY = 50
+    } else if (bufferUsageRatio > 0.3) {
+      // 缓冲区使用超过30%，适度降低刷新频率
+      TARGET_BATCH_INTERVAL_MS = 33  // 30fps
+      IDLE_FLUSH_DELAY = 33
+    } else {
+      // 缓冲区使用较少，保持高刷新率
+      TARGET_BATCH_INTERVAL_MS = 16  // 60fps
+      IDLE_FLUSH_DELAY = 16
+    }
+  }
+
+  // 设置缓冲区使用率（供外部调用）
+  const setBufferUsage = (usage: number) => {
+    bufferUsageRatio = Math.max(0, Math.min(1, usage)) // 限制在 0-1 范围
+    adjustBatchStrategy()
+  }
 
   // ==================== 批量帧处理 ====================
 
@@ -76,7 +104,7 @@ export function useProtocolParser() {
       channelCount.value = values.length
     }
 
-    // 基于时间的批量刷新：每 16ms 发送一批（约 60fps）
+    // 基于时间的批量刷新：根据动态调整的间隔发送
     const now = performance.now()
     if (now - lastBatchTime >= TARGET_BATCH_INTERVAL_MS) {
       flushBatch()
@@ -336,6 +364,7 @@ export function useProtocolParser() {
     setProtocol,
     reset,
     fullReset,
-    setChannelCount
+    setChannelCount,
+    setBufferUsage
   }
 }
