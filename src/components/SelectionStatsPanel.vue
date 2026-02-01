@@ -35,14 +35,19 @@ const startDrag = (e: MouseEvent) => {
 
 // 拖动中
 const onDrag = (e: MouseEvent) => {
-  if (!isDragging.value) return
-  // 简化：假设容器是整个视口
-  let newX = e.clientX - dragOffset.value.x
-  let newY = e.clientY - dragOffset.value.y
+  if (!isDragging.value || !panelRef.value) return
 
-  // 限制在视口内
-  newX = Math.max(0, Math.min(newX, window.innerWidth - 200))
-  newY = Math.max(0, Math.min(newY, window.innerHeight - 100))
+  // 获取父容器的位置（OscilloscopeChart 的根容器）
+  const parentRect = panelRef.value.parentElement?.getBoundingClientRect()
+  if (!parentRect) return
+
+  // 计算相对于父容器的坐标
+  let newX = e.clientX - parentRect.left - dragOffset.value.x
+  let newY = e.clientY - parentRect.top - dragOffset.value.y
+
+  // 限制在父容器内
+  newX = Math.max(0, Math.min(newX, parentRect.width - 200))
+  newY = Math.max(0, Math.min(newY, parentRect.height - 100))
 
   panelPosition.value = { x: newX, y: newY }
 }

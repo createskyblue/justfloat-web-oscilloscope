@@ -429,6 +429,34 @@ export function useDataBuffer(initialSize: number = 10000) {
     return [xData.slice(0, outIdx), ...series.map(s => s.slice(0, outIdx))]
   }
 
+  // 获取全量数据（不降采样，用于缩放功能）
+  const getFullChartData = (channelCount: number, coefficients: number[] = []) => {
+    const totalSize = ringBuffer.size
+    if (totalSize === 0) return null
+
+    // 返回全量数据，不降采样
+    const outputSize = totalSize
+    const xData = new Float64Array(outputSize)
+    const series: Float64Array[] = []
+    for (let i = 0; i < channelCount; i++) {
+      series.push(new Float64Array(outputSize))
+    }
+
+    for (let i = 0; i < totalSize; i++) {
+      const frame = ringBuffer.get(i)
+      if (!frame) continue
+
+      xData[i] = i
+      for (let ch = 0; ch < channelCount; ch++) {
+        const rawValue = ch < frame.values.length ? frame.values[ch] : 0
+        const coef = coefficients[ch] ?? 1
+        series[ch][i] = rawValue * coef
+      }
+    }
+
+    return [xData, ...series]
+  }
+
   // 清空数据
   const clear = () => {
     ringBuffer.clear()
@@ -542,6 +570,7 @@ export function useDataBuffer(initialSize: number = 10000) {
     getSelectionStats,
     getChartData,
     getChartDataInRange,
+    getFullChartData,
     getDataSize,
     clear,
     setBufferSize,

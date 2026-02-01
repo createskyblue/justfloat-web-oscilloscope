@@ -50,9 +50,10 @@ const cursorIndex = ref<number | null>(null)
 
 // 计算选区统计数据的辅助函数
 const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionStats | null => {
-  if (!props.chartData || props.chartData.length === 0) return null
+  // 使用 fullData 而不是 chartData，因为 startIdx/endIdx 是基于全量数据的索引
+  if (!props.fullData || props.fullData.length === 0) return null
 
-  const data = props.chartData
+  const data = props.fullData
   const xData = data[0] as number[]
   if (!xData || xData.length === 0) return null
 
@@ -816,16 +817,21 @@ watch(() => props.totalPoints, (newVal, oldVal) => {
     }
     // 重置缩放状态
     resetZoom()
+    return
   }
-  // 数据长度发生重大变化时（超过10%差异），也重置缩放状态
-  if (oldVal > 0 && newVal > 0) {
-    const changeRatio = Math.abs(newVal - oldVal) / oldVal
-    if (changeRatio > 0.1) {
-      // 数据量变化超过10%，重置缩放以避免索引越界
-      resetZoom()
+
+  // 只在数据量减少时检查是否需要重置缩放
+  // 数据增加时，现有缩放范围仍然有效，无需重置
+  if (oldVal > 0 && newVal > 0 && newVal < oldVal) {
+    // 如果当前有缩放状态，检查缩放范围是否超出新的数据范围
+    if (isZoomed.value && zoomRange.value) {
+      const { end } = zoomRange.value
+      // 如果缩放结束索引超出新数据范围，重置缩放
+      if (end >= newVal) {
+        resetZoom()
+      }
     }
   }
-  // 从无数据变为有数据时，定时刷新器会自动初始化 minimap
 })
 
 // 监听数据源引用变化，重置缩放状态

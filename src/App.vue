@@ -310,7 +310,7 @@ onUnmounted(() => {
           :sample-rate="buffer.sampleRate.value"
           :total-points="buffer.totalPoints.value"
           :chart-data="buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
-          :full-data="buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
+          :full-data="buffer.getFullChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :is-dark="isDark"
           @selection-change="selectionStats = $event"
           @cursor-values="handleCursorValues"
