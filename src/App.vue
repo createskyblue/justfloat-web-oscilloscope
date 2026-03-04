@@ -64,6 +64,7 @@ const connectionType = ref<ConnectionType>(savedConfig.connectionType || 'serial
 const wsUrl = ref(savedConfig.wsUrl || 'ws://localhost:8080')
 const btServiceUUID = ref(savedConfig.btServiceUUID || 'ffe0')
 const btCharacteristicUUID = ref(savedConfig.btCharacteristicUUID || 'ffe1')
+const isFirstSerialConnection = ref(savedConfig.isFirstSerialConnection ?? true)
 
 // 当前连接模块（根据连接类型切换）
 const currentConnection = computed(() => {
@@ -88,7 +89,7 @@ const selectionStats = ref<import('./types').SelectionStats | null>(null)
 parser.setProtocol(protocol.value)
 
 // 连接串口时的波特率
-const handleConnect = async () => {
+const handleConnect = async (forceSelect: boolean = false) => {
   const conn = currentConnection.value
   if (conn.status.value === 'connected') {
     await conn.disconnect()
@@ -110,7 +111,19 @@ const handleConnect = async () => {
         characteristicUUID: btCharacteristicUUID.value
       })
     } else {
-      await serial.connect(baudRate.value)
+      // 串口连接
+      if (forceSelect) {
+        // 强制选择：重置端口缓存，确保弹窗选择
+        serial.resetPort()
+      }
+      // autoConnect = !isFirstSerialConnection：非首次连接时尝试自动连接
+      const result = await serial.connect(baudRate.value, forceSelect, !isFirstSerialConnection.value)
+      if (result.success) {
+        // 如果是用户手动选择的串口（弹窗选择），标记为非首次连接
+        if (result.isUserSelected) {
+          isFirstSerialConnection.value = false
+        }
+      }
     }
   }
 }
@@ -152,7 +165,7 @@ watch(() => buffer.totalPoints.value, (totalPoints) => {
 
 // 保存配置（使用防抖避免频繁写入 localStorage）
 let saveConfigTimer: ReturnType<typeof setTimeout> | null = null
-watch([() => baudRate.value, () => bufferSize.value, () => protocol.value, () => connectionType.value, () => wsUrl.value, () => btServiceUUID.value, () => btCharacteristicUUID.value, () => channelConfig.channels.value, () => isDark.value], () => {
+watch([() => baudRate.value, () => bufferSize.value, () => protocol.value, () => connectionType.value, () => wsUrl.value, () => btServiceUUID.value, () => btCharacteristicUUID.value, () => channelConfig.channels.value, () => isDark.value, () => isFirstSerialConnection.value], () => {
   // 清除之前的定时器
   if (saveConfigTimer) {
     clearTimeout(saveConfigTimer)
@@ -169,7 +182,8 @@ watch([() => baudRate.value, () => bufferSize.value, () => protocol.value, () =>
       btServiceUUID: btServiceUUID.value,
       btCharacteristicUUID: btCharacteristicUUID.value,
       channels: channelConfig.channels.value,
-      isDark: isDark.value
+      isDark: isDark.value,
+      isFirstSerialConnection: isFirstSerialConnection.value
     }
     saveConfig(config)
   }, 500)
@@ -210,7 +224,8 @@ const handleExport = () => {
       wsUrl: wsUrl.value,
       btServiceUUID: btServiceUUID.value,
       btCharacteristicUUID: btCharacteristicUUID.value,
-      channels: channelConfig.channels.value
+      channels: channelConfig.channels.value,
+      isFirstSerialConnection: isFirstSerialConnection.value
     },
     channels: buffer.exportData(),
     sampleRate: buffer.sampleRate.value,
@@ -238,6 +253,8 @@ const handleImport = async () => {
         console.log('导入配置:', data.config)
         baudRate.value = data.config.baudRate
         bufferSize.value = data.config.bufferSize
+        // 导入时保留当前的 isFirstSerialConnection 状态，不跟随配置文件
+        // isFirstSerialConnection.value = data.config.isFirstSerialConnection ?? true
         if (data.config.channels) {
           channelConfig.loadChannels(data.config.channels)
         }
@@ -292,7 +309,9 @@ onUnmounted(() => {
       :bt-characteristic-u-u-i-d="btCharacteristicUUID"
       :baud-rate="baudRate"
       :is-dark="isDark"
-      @connect="handleConnect"
+      :has-connected-before="!isFirstSerialConnection"
+      @connect="handleConnect()"
+      @connect:force-select="handleConnect(true)"
       @clear="handleClear"
       @export="handleExport"
       @import="handleImport"

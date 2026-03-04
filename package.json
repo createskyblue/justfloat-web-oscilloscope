@@ -11,12 +11,13 @@
     "deploy": "gh-pages -d dist -r https://github.com/createskyblue/justfloat-web-oscilloscope -b gh-pages"
   },
   "dependencies": {
-    "vue": "^3.4.21",
-    "uplot": "^1.6.30"
+    "uplot": "^1.6.30",
+    "vue": "^3.4.21"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
     "autoprefixer": "^10.4.18",
+    "gh-pages": "^6.3.0",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.4.2",

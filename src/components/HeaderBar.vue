@@ -12,10 +12,12 @@ const props = defineProps<{
   btCharacteristicUUID: string
   baudRate: number
   isDark: boolean
+  hasConnectedBefore?: boolean
 }>()
 
 const emit = defineEmits<{
   connect: []
+  'connect:forceSelect': []
   clear: []
   export: []
   import: []
@@ -219,18 +221,33 @@ const statusColor = {
         <span :class="['text-sm', isDark ? 'text-gray-400' : 'text-gray-600']">{{ statusText[status] }}</span>
       </div>
 
-      <!-- 连接按钮 -->
-      <button
-        v-if="isSupported"
-        class="px-4 py-1.5 text-sm rounded"
-        :class="status === 'connected'
-          ? 'bg-red-600 hover:bg-red-700 text-white'
-          : 'bg-blue-600 hover:bg-blue-700 text-white'"
-        :disabled="status === 'connecting'"
-        @click="emit('connect')"
-      >
-        {{ status === 'connected' ? '断开' : status === 'connecting' ? '连接中...' : '连接' }}
-      </button>
+      <!-- 连接按钮组 -->
+      <template v-if="isSupported">
+        <!-- 重新选择串口按钮（仅在串口模式下且非首次连接时显示） -->
+        <button
+          v-if="connectionType === 'serial' && hasConnectedBefore && status !== 'connected'"
+          :class="['px-3 py-1.5 text-sm rounded', isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-white hover:bg-gray-200 text-gray-700']"
+          :disabled="status === 'connecting'"
+          @click="emit('connect:forceSelect')"
+          title="重新选择串口"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+
+        <!-- 连接/断开按钮 -->
+        <button
+          class="px-4 py-1.5 text-sm rounded"
+          :class="status === 'connected'
+            ? 'bg-red-600 hover:bg-red-700 text-white'
+            : 'bg-blue-600 hover:bg-blue-700 text-white'"
+          :disabled="status === 'connecting'"
+          @click="emit('connect')"
+        >
+          {{ status === 'connected' ? '断开' : status === 'connecting' ? '连接中...' : '连接' }}
+        </button>
+      </template>
 
       <span v-else :class="['text-sm', isDark ? 'text-red-400' : 'text-red-600']">
         浏览器不支持 Web Serial API
