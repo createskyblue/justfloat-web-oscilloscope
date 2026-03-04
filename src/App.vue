@@ -330,6 +330,7 @@ onUnmounted(() => {
           :get-chart-data="() => buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :get-full-chart-data="() => buffer.getFullChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :get-minimap-data="() => buffer.getMinimapData(parser.channelCount.value, channelConfig.getCoefficients())"
+          :dropped-count="buffer.droppedCount.value"
           :is-dark="isDark"
           @selection-change="selectionStats = $event"
           @cursor-values="handleCursorValues"

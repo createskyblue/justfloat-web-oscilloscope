@@ -9,6 +9,7 @@ class RingBuffer {
   private tail: number = 0
   private _size: number = 0
   private capacity: number
+  private _droppedCount: number = 0  // 记录总共丢弃的数据点数量
 
   constructor(capacity: number) {
     this.capacity = capacity
@@ -16,23 +17,73 @@ class RingBuffer {
   }
 
   push(frame: DataFrame) {
+    // 如果缓冲区已满，精确丢弃1个最旧的数据点
+    if (this._size >= this.capacity) {
+      this.dropOldestData(1)
+    }
+
     this.buffer[this.tail] = frame
     this.tail = (this.tail + 1) % this.capacity
-    if (this._size < this.capacity) {
-      this._size++
-    } else {
-      this.head = (this.head + 1) % this.capacity
+    this._size++
+  }
+
+  // 主动丢弃最旧的 n 个数据点，返回实际丢弃的数量
+  private dropOldestData(count: number): number {
+    if (count <= 0 || this._size <= 0) return 0
+
+    const actualDropCount = Math.min(count, this._size)
+
+    // 清空被丢弃位置的引用，帮助垃圾回收
+    for (let i = 0; i < actualDropCount; i++) {
+      const idx = (this.head + i) % this.capacity
+      this.buffer[idx] = undefined as unknown as DataFrame
     }
+
+    // 将 head 向前移动，相当于丢弃了最开始的数据
+    this.head = (this.head + actualDropCount) % this.capacity
+    this._size = Math.max(0, this._size - actualDropCount)
+    this._droppedCount += actualDropCount
+
+    return actualDropCount
   }
 
   pushBatch(frames: DataFrame[]) {
+    if (frames.length === 0) return
+
+    const incomingCount = frames.length
+    const availableSpace = this.capacity - this._size
+
+    // 如果新数据超出可用空间，精确丢弃相同数量的旧数据
+    if (incomingCount > availableSpace) {
+      const needToDrop = incomingCount - availableSpace
+      this.dropOldestData(needToDrop)
+    }
+
+    // 批量写入数据
     for (const frame of frames) {
-      this.push(frame)
+      this.buffer[this.tail] = frame
+      this.tail = (this.tail + 1) % this.capacity
+      this._size++
     }
   }
 
   get size(): number {
     return this._size
+  }
+
+  // 获取缓冲区使用率 (0-1)
+  get utilization(): number {
+    return this._size / this.capacity
+  }
+
+  // 获取缓冲区容量
+  get maxCapacity(): number {
+    return this.capacity
+  }
+
+  // 获取总共丢弃的数据点数量（用于调整外部索引）
+  get droppedCount(): number {
+    return this._droppedCount
   }
 
   get(index: number): DataFrame | undefined {
@@ -64,6 +115,7 @@ class RingBuffer {
     this.head = 0
     this.tail = 0
     this._size = 0
+    this._droppedCount = 0
   }
 
   resize(newCapacity: number) {
@@ -88,6 +140,8 @@ export function useDataBuffer(initialSize: number = 10000) {
   const dataVersion = ref(0)
   const data = shallowRef<DataFrame[]>([])
   const sampleRate = ref(0)
+  // 响应式的丢弃计数，用于触发图表缩放范围调整
+  const droppedCount = ref(0)
 
   // 缓存的统计数据（每个通道独立缓存时间）
   let cachedStats: Map<number, { stats: ChannelStats; timestamp: number }> = new Map()
@@ -96,6 +150,10 @@ export function useDataBuffer(initialSize: number = 10000) {
   // 缓存图表数据，避免每次渲染都重新创建 TypedArray
   let cachedChartData: (Float64Array | number[])[] | null = null
   let cachedChartDataVersion = -1
+
+  // 缓存全量数据，避免频繁重建（大数据量时性能关键）
+  let cachedFullChartData: (Float64Array | number[])[] | null = null
+  let cachedFullChartDataVersion = -1
 
   // 用于计算采样率的变量
   let sampleCount = 0
@@ -142,7 +200,12 @@ export function useDataBuffer(initialSize: number = 10000) {
       sampleCount = 0
     }
 
+    const previousDropped = ringBuffer.droppedCount
     ringBuffer.push(frame)
+    // 如果发生了数据丢弃，同步更新响应式的 droppedCount
+    if (ringBuffer.droppedCount !== previousDropped) {
+      droppedCount.value = ringBuffer.droppedCount
+    }
     scheduleUpdate()
   }
 
@@ -179,7 +242,12 @@ export function useDataBuffer(initialSize: number = 10000) {
       sampleCount = 0
     }
 
+    const previousDropped = ringBuffer.droppedCount
     ringBuffer.pushBatch(newFrames)
+    // 如果发生了数据丢弃，同步更新响应式的 droppedCount
+    if (ringBuffer.droppedCount !== previousDropped) {
+      droppedCount.value = ringBuffer.droppedCount
+    }
     scheduleUpdate()
   }
 
@@ -419,7 +487,14 @@ export function useDataBuffer(initialSize: number = 10000) {
     const totalSize = ringBuffer.size
 
     if (totalSize === 0) {
+      cachedFullChartData = null
+      cachedFullChartDataVersion = dataVersion.value
       return null
+    }
+
+    // 检查缓存（数据版本未变化时直接返回缓存，大幅提升性能）
+    if (cachedFullChartData && cachedFullChartDataVersion === dataVersion.value) {
+      return cachedFullChartData
     }
 
     // 返回全量数据，不降采样（保持索引正确性，用于缩放和选区）
@@ -442,7 +517,10 @@ export function useDataBuffer(initialSize: number = 10000) {
       }
     }
 
-    return [xData, ...series]
+    const result = [xData, ...series]
+    cachedFullChartData = result
+    cachedFullChartDataVersion = dataVersion.value
+    return result
   }
 
   // 获取 Minimap 数据（专门用于预览，带降采样）
@@ -499,8 +577,11 @@ export function useDataBuffer(initialSize: number = 10000) {
     cachedStats.clear()
     cachedChartData = null
     cachedChartDataVersion = -1
+    cachedFullChartData = null
+    cachedFullChartDataVersion = -1
     data.value = []
     dataVersion.value++
+    droppedCount.value = 0
     sampleRate.value = 0
     sampleCount = 0
     sampleRateUpdateTime = 0
@@ -510,7 +591,12 @@ export function useDataBuffer(initialSize: number = 10000) {
   const setBufferSize = (size: number) => {
     const newSize = Math.max(MIN_BUFFER_SIZE, Math.min(MAX_BUFFER_SIZE, size))
     bufferSize.value = newSize
+    const previousDropped = ringBuffer.droppedCount
     ringBuffer.resize(newSize)
+    // 如果发生了数据丢弃，同步更新响应式的 droppedCount
+    if (ringBuffer.droppedCount !== previousDropped) {
+      droppedCount.value = ringBuffer.droppedCount
+    }
     dataVersion.value++
   }
 
@@ -519,7 +605,12 @@ export function useDataBuffer(initialSize: number = 10000) {
     clear()
     const toImport = frames.slice(-bufferSize.value)
     for (const frame of toImport) {
+      const previousDropped = ringBuffer.droppedCount
       ringBuffer.push(frame)
+      // 如果发生了数据丢弃，同步更新响应式的 droppedCount
+      if (ringBuffer.droppedCount !== previousDropped) {
+        droppedCount.value = ringBuffer.droppedCount
+      }
     }
     dataVersion.value++
   }
@@ -587,7 +678,12 @@ export function useDataBuffer(initialSize: number = 10000) {
     }
 
     // 一次性批量添加到 ringBuffer
+    const previousDropped = ringBuffer.droppedCount
     ringBuffer.pushBatch(frames)
+    // 如果发生了数据丢弃，同步更新响应式的 droppedCount
+    if (ringBuffer.droppedCount !== previousDropped) {
+      droppedCount.value = ringBuffer.droppedCount
+    }
 
     // 导入完成后，触发一次更新
     scheduleUpdate()
@@ -608,6 +704,9 @@ export function useDataBuffer(initialSize: number = 10000) {
   // 获取数据大小
   const getDataSize = () => ringBuffer.size
 
+  // 获取缓冲区使用率 (0-1)
+  const getBufferUtilization = () => ringBuffer.utilization
+
   return {
     bufferSize,
     data,
@@ -623,11 +722,13 @@ export function useDataBuffer(initialSize: number = 10000) {
     getFullChartData,
     getMinimapData,
     getDataSize,
+    getBufferUtilization,
     clear,
     setBufferSize,
     importData,
     exportData,
     importChannels,
-    setSampleRate
+    setSampleRate,
+    droppedCount
   }
 }

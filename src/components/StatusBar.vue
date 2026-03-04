@@ -99,7 +99,7 @@ const bufferColorClass = computed(() => {
         <div :class="['flex items-center gap-1.5', isDark ? 'text-gray-300' : 'text-gray-700']">
           <div :class="['w-24 h-1.5 rounded-full overflow-hidden', isDark ? 'bg-gray-700' : 'bg-gray-300']">
             <div
-              class="h-full transition-all duration-300"
+              class="h-full"
               :class="bufferColorClass"
               :style="{ width: `${bufferPercentage}%` }"
             ></div>

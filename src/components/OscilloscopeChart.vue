@@ -16,6 +16,8 @@ const props = defineProps<{
   getFullChartData: () => (Float64Array | number[])[] | null
   // 专用于 minimap 的数据获取（带降采样）
   getMinimapData: () => (Float64Array | number[])[] | null
+  // 总共丢弃的数据点数量（用于调整缩放索引）
+  droppedCount?: number
 }>()
 
 const emit = defineEmits<{
@@ -141,12 +143,15 @@ const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionSta
 const getDataInRange = (startIdx: number, endIdx: number): (Float64Array | number[])[] | null => {
   if (!fullData.value || fullData.value.length === 0) return null
 
+  const dataLength = fullData.value[0].length
+  if (dataLength === 0) return null
+
   const result: (Float64Array | number[])[] = []
-  const start = Math.max(0, Math.floor(startIdx))
-  const end = Math.min(fullData.value[0].length - 1, Math.floor(endIdx))
+  const start = Math.max(0, Math.min(Math.floor(startIdx), dataLength - 1))
+  const end = Math.max(start, Math.min(Math.floor(endIdx), dataLength - 1))
 
   // 边界检查：如果范围无效，返回 null
-  if (start >= end || start < 0 || end >= fullData.value[0].length) {
+  if (start >= end) {
     return null
   }
 
@@ -1031,6 +1036,90 @@ watch(() => mainChartYAxisWidth.value, async (newVal) => {
     }
   }
 })
+
+// 监听 droppedCount 变化，精确调整缩放索引
+const lastDroppedCount = ref(0)
+// 标记是否已经初始化，避免 immediate 回调影响正常逻辑
+let isDroppedCountInitialized = false
+
+watch(() => props.droppedCount, async (newDroppedCount) => {
+  // 第一次执行时初始化 lastDroppedCount，不执行平移逻辑
+  if (!isDroppedCountInitialized) {
+    lastDroppedCount.value = newDroppedCount || 0
+    isDroppedCountInitialized = true
+    return
+  }
+
+  if (!newDroppedCount || newDroppedCount <= lastDroppedCount.value) return
+
+  // 精确计算本次丢弃了多少个数据点
+  const droppedDelta = newDroppedCount - lastDroppedCount.value
+  lastDroppedCount.value = newDroppedCount
+
+  // 等待 DOM 更新完成，确保 props.totalPoints 已同步
+  await nextTick()
+
+  const currentTotalPoints = props.totalPoints
+
+  // 调整当前缩放范围的索引 - 精确平移
+  if (zoomRange.value) {
+    let newStart = zoomRange.value.start - droppedDelta
+    let newEnd = zoomRange.value.end - droppedDelta
+
+    // 如果平移后视图超出数据范围（用户原本在看最新数据）
+    // 自动调整到最新数据区域，保持相同的视图宽度
+    if (newEnd > currentTotalPoints) {
+      const rangeSize = zoomRange.value.end - zoomRange.value.start
+      newEnd = currentTotalPoints
+      newStart = Math.max(0, newEnd - rangeSize)
+    }
+
+    // 如果开始位置被丢弃了，从0开始显示
+    if (newStart < 0) {
+      newStart = 0
+    }
+
+    zoomRange.value = { start: newStart, end: newEnd }
+
+    // 如果缩放范围已无效（宽度太小或被完全丢弃），重置缩放
+    if (zoomRange.value.start >= zoomRange.value.end || zoomRange.value.end <= 0) {
+      resetZoom()
+    } else {
+      // 更新选区统计
+      const stats = calculateSelectionStats(zoomRange.value.start, zoomRange.value.end)
+      selectionStats.value = stats
+      emit('selection-change', stats)
+
+      // 强制刷新图表显示（数据丢弃后需要立即更新）
+      if (chart.value && isZoomed.value) {
+        const newData = getDataInRange(zoomRange.value.start, zoomRange.value.end)
+        if (newData) {
+          chart.value.setData(newData as uPlot.AlignedData)
+        }
+      }
+    }
+  }
+
+  // 调整历史记录中的索引 - 同样精确平移
+  if (zoomHistory.value.length > 0) {
+    zoomHistory.value = zoomHistory.value.map(range => {
+      let newStart = range.start - droppedDelta
+      let newEnd = range.end - droppedDelta
+
+      // 如果平移后超出范围，自动调整到最新数据
+      if (newEnd > currentTotalPoints) {
+        const rangeSize = range.end - range.start
+        newEnd = currentTotalPoints
+        newStart = Math.max(0, newEnd - rangeSize)
+      }
+
+      // 确保不越界
+      if (newStart < 0) newStart = 0
+
+      return { start: newStart, end: newEnd }
+    }).filter(range => range.start < range.end && range.end > 0)
+  }
+}, { immediate: true })
 
 // 生命周期
 onMounted(() => {
