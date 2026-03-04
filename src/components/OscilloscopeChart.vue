@@ -431,21 +431,28 @@ const initMinimap = (sync = false) => {
   const step = Math.max(1, Math.ceil(xData.length / maxPoints))
   const pointCount = Math.ceil(xData.length / step)
 
-  // 使用 TypedArray 预分配
+  // 只包含可见通道的数据（与 createMinimapOptions 保持一致）
   const downsampledData: (Float64Array | number[])[] = [
     new Float64Array(pointCount)
   ]
+  // 记录可见通道的原始索引
+  const visibleChannelIndices: number[] = []
   for (let ch = 1; ch < data.length; ch++) {
-    downsampledData.push(new Float64Array(pointCount))
+    const channel = props.channels[ch - 1]
+    if (channel?.visible !== false) {
+      downsampledData.push(new Float64Array(pointCount))
+      visibleChannelIndices.push(ch)
+    }
   }
 
   // 使用索引赋值代替 push
   let outIdx = 0
   for (let i = 0; i < xData.length; i += step) {
     downsampledData[0][outIdx] = xData[i] as number
-    for (let ch = 1; ch < data.length; ch++) {
+    for (let idx = 0; idx < visibleChannelIndices.length; idx++) {
+      const ch = visibleChannelIndices[idx]
       const channelData = data[ch] as number[]
-      downsampledData[ch][outIdx] = channelData[i]
+      downsampledData[idx + 1][outIdx] = channelData[i]
     }
     outIdx++
   }
@@ -908,21 +915,28 @@ const updateMinimapData = () => {
   const step = Math.max(1, Math.ceil(xData.length / maxPoints))
   const pointCount = Math.ceil(xData.length / step)
 
-  // 使用 TypedArray 预分配，避免频繁 push
+  // 只包含可见通道的数据（与 createMinimapOptions 保持一致）
   const downsampledData: (Float64Array | number[])[] = [
     new Float64Array(pointCount)
   ]
+  // 记录可见通道的原始索引
+  const visibleChannelIndices: number[] = []
   for (let ch = 1; ch < data.length; ch++) {
-    downsampledData.push(new Float64Array(pointCount))
+    const channel = props.channels[ch - 1]
+    if (channel?.visible !== false) {
+      downsampledData.push(new Float64Array(pointCount))
+      visibleChannelIndices.push(ch)
+    }
   }
 
   // 使用索引赋值代替 push，性能更好
   let outIdx = 0
   for (let i = 0; i < xData.length; i += step) {
     downsampledData[0][outIdx] = xData[i] as number
-    for (let ch = 1; ch < data.length; ch++) {
+    for (let idx = 0; idx < visibleChannelIndices.length; idx++) {
+      const ch = visibleChannelIndices[idx]
       const channelData = data[ch] as number[]
-      downsampledData[ch][outIdx] = channelData[i]
+      downsampledData[idx + 1][outIdx] = channelData[i]
     }
     outIdx++
   }
