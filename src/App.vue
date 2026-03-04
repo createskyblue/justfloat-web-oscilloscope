@@ -152,7 +152,7 @@ watch(() => buffer.totalPoints.value, (totalPoints) => {
 
 // 保存配置（使用防抖避免频繁写入 localStorage）
 let saveConfigTimer: ReturnType<typeof setTimeout> | null = null
-watch([() => baudRate.value, () => bufferSize.value, () => protocol.value, () => connectionType.value, () => wsUrl.value, () => btServiceUUID.value, () => btCharacteristicUUID.value, () => channelConfig.channels.value], () => {
+watch([() => baudRate.value, () => bufferSize.value, () => protocol.value, () => connectionType.value, () => wsUrl.value, () => btServiceUUID.value, () => btCharacteristicUUID.value, () => channelConfig.channels.value, () => isDark.value], () => {
   // 清除之前的定时器
   if (saveConfigTimer) {
     clearTimeout(saveConfigTimer)
