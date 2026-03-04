@@ -29,6 +29,7 @@ const minimapContainer = ref<HTMLDivElement | null>(null)
 const minimap = shallowRef<uPlot | null>(null)
 const minimapViewport = ref<HTMLDivElement | null>(null)
 const mainChartYAxisWidth = ref(0) // 主图Y轴宽度
+const mainChartPlotWidth = ref(0) // 主图绘图区宽度
 const isDraggingViewport = ref(false)
 const viewportDragStartX = ref(0)
 const viewportDragStartLeft = ref(0)
@@ -79,10 +80,10 @@ const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionSta
   }
 
   const pointCount = endIndex - startIndex + 1
-  // 使用采样率计算时长：点数 / 采样率 = 秒数
-  const duration = pointCount / props.sampleRate
-  // 频率是时长的倒数
-  const frequency = props.sampleRate / pointCount
+  // 使用采样率计算时长（毫秒）：点数 / 采样率 * 1000 = 毫秒
+  const duration = pointCount / props.sampleRate * 1000
+  // 频率是时长的倒数（Hz）
+  const frequency = 1000 / duration
 
   const channels = props.channels.slice(0, props.channelCount).map((channel, idx) => {
     const seriesIdx = idx + 1
@@ -393,11 +394,17 @@ const initChart = () => {
   const options = createOptions(width, height)
   chart.value = new uPlot(options, initialData, chartContainer.value)
 
-  // 获取主图Y轴宽度，用于对齐Minimap
+  // 获取主图绘图区位置和尺寸（从 DOM 的 .u-over 元素读取），用于对齐Minimap
   nextTick(() => {
-    if (chart.value && chart.value.axes[1]) {
-      const axisSize = chart.value.axes[1].size
-      mainChartYAxisWidth.value = typeof axisSize === 'number' ? axisSize : 40
+    if (chartContainer.value) {
+      const uOver = chartContainer.value.querySelector('.u-over') as HTMLElement
+      if (uOver) {
+        mainChartYAxisWidth.value = uOver.offsetLeft
+        mainChartPlotWidth.value = uOver.offsetWidth
+      } else if (chart.value && chart.value.axes[1]) {
+        const axisSize = chart.value.axes[1].size
+        mainChartYAxisWidth.value = typeof axisSize === 'number' ? axisSize : 70
+      }
     }
   })
 
@@ -410,9 +417,15 @@ const initMinimap = (sync = false) => {
   const doInit = () => {
     if (!minimapContainer.value || props.totalPoints === 0) return
 
-    const rect = minimapContainer.value.getBoundingClientRect()
-    // 使用容器的完整宽度
-    const width = Math.max(100, rect.width || 800)
+    // 从主图表 .u-over 获取绘图区宽度，确保与主图表对齐
+    let width = 800
+    if (chartContainer.value) {
+      const uOver = chartContainer.value.querySelector('.u-over') as HTMLElement
+      if (uOver) {
+        width = Math.max(100, Math.floor(uOver.offsetWidth))
+        mainChartPlotWidth.value = uOver.offsetWidth
+      }
+    }
     const height = 60 // 固定高度
 
     // 如果宽度还是无效，再延迟一帧
@@ -806,13 +819,20 @@ const handleResize = () => {
       }
     }
 
-    // 同时更新 Minimap 大小
-    if (minimap.value && minimapContainer.value) {
-      const minimapRect = minimapContainer.value.getBoundingClientRect()
-      // 减去左右 margin (10px * 2)
-      const minimapWidth = Math.max(100, Math.floor(minimapRect.width) - 20)
-      minimap.value.setSize({ width: minimapWidth, height: 60 })
-    }
+    // 延迟一帧等待 uPlot DOM 更新完成，然后重新读取绘图区尺寸
+    requestAnimationFrame(() => {
+      if (chartContainer.value) {
+        const uOver = chartContainer.value.querySelector('.u-over') as HTMLElement
+        if (uOver) {
+          mainChartYAxisWidth.value = uOver.offsetLeft
+          mainChartPlotWidth.value = uOver.offsetWidth
+          if (minimap.value) {
+            const plotWidth = Math.max(100, Math.floor(uOver.offsetWidth))
+            minimap.value.setSize({ width: plotWidth, height: 60 })
+          }
+        }
+      }
+    })
   }, 100) // 100ms 防抖
 }
 
@@ -952,6 +972,22 @@ watch([() => isZoomed.value, () => zoomRange.value], async () => {
   updateMinimapViewport()
 })
 
+// 监听 Y轴宽度变化，确保 minimap 大小同步更新
+watch(() => mainChartYAxisWidth.value, async (newVal) => {
+  if (newVal > 0 && chartContainer.value) {
+    // 等待 DOM 更新完成
+    await nextTick()
+    const uOver = chartContainer.value.querySelector('.u-over') as HTMLElement
+    if (uOver) {
+      mainChartPlotWidth.value = uOver.offsetWidth
+      if (minimap.value) {
+        const plotWidth = Math.max(100, Math.floor(uOver.offsetWidth))
+        minimap.value.setSize({ width: plotWidth, height: 60 })
+      }
+    }
+  }
+})
+
 // 生命周期
 onMounted(() => {
   initChart()
@@ -1078,8 +1114,9 @@ defineExpose({
         ref="minimapContainer"
         class="relative"
         :style="{
-          margin: '5px 10px 5px ' + (mainChartYAxisWidth + 10) + 'px',
-          height: '60px'
+          margin: '5px 0px 5px ' + mainChartYAxisWidth + 'px',
+          height: '60px',
+          width: mainChartPlotWidth > 0 ? mainChartPlotWidth + 'px' : 'auto'
         }"
       >
         <!-- 可拖动的视口窗口（放在 minimapContainer 内部，百分比相对于此容器计算） -->
