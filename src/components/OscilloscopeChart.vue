@@ -79,10 +79,10 @@ const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionSta
   }
 
   const pointCount = endIndex - startIndex + 1
-  const startValue = xData[startIndex]
-  const endValue = xData[endIndex]
-  const duration = endValue - startValue
-  const frequency = pointCount / duration * props.sampleRate
+  // 使用采样率计算时长：点数 / 采样率 = 秒数
+  const duration = pointCount / props.sampleRate
+  // 频率是时长的倒数
+  const frequency = props.sampleRate / pointCount
 
   const channels = props.channels.slice(0, props.channelCount).map((channel, idx) => {
     const seriesIdx = idx + 1
