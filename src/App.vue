@@ -96,6 +96,8 @@ const handleConnect = async (forceSelect: boolean = false) => {
     // 只重置parser状态，不清空数据buffer
     parser.reset()
   } else {
+    // 连接前重置协议解析器，避免残留数据导致解析错误
+    parser.reset()
     if (connectionType.value === 'websocket') {
       // 在连接 WebSocket 之前检查协议兼容性
       const checkResult = websocket.checkProtocolCompatibility(wsUrl.value)

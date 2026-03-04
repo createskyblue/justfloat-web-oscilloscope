@@ -162,65 +162,83 @@ export function useProtocolParser() {
     return floats
   }
 
+  // 快速查找同步字节位置（使用 Uint8Array 的 indexOf 批量搜索）
+  const findSyncBytes = (data: Uint8Array, startIndex: number): number => {
+    // 查找 0x00 0x00 0x80 0x7F 模式
+    // 优化：先找 0x7F，然后回退检查前面三个字节
+    for (let i = startIndex + 3; i < data.length; i++) {
+      if (data[i] === SYNC_BYTES[3] &&
+          data[i - 1] === SYNC_BYTES[2] &&
+          data[i - 2] === SYNC_BYTES[1] &&
+          data[i - 3] === SYNC_BYTES[0]) {
+        return i - 3
+      }
+    }
+    return -1
+  }
+
   const processJustFloat = (data: Uint8Array) => {
-    for (let i = 0; i < data.length; i++) {
-      justfloatBuffer.push(data[i])
+    // 将新数据追加到 buffer（使用 Uint8Array 提高性能）
+    const newBuffer = new Uint8Array(justfloatBuffer.length + data.length)
+    newBuffer.set(justfloatBuffer)
+    newBuffer.set(data, justfloatBuffer.length)
+    justfloatBuffer = Array.from(newBuffer)
 
-      if (justfloatBuffer.length > 100000) {
-        justfloatBuffer = justfloatBuffer.slice(-50000)
-        justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
-        firstSyncIndex = -1
+    // 限制 buffer 大小（避免内存溢出）
+    if (justfloatBuffer.length > 50000) {
+      // 保留最后一部分数据，但要对齐到4字节边界
+      const excess = justfloatBuffer.length - 4096
+      const alignedExcess = Math.floor(excess / 4) * 4
+      justfloatBuffer = justfloatBuffer.slice(alignedExcess)
+      justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
+      firstSyncIndex = -1
+    }
+
+    // 批量处理：查找所有同步字节位置
+    let searchStart = 0
+    const syncPositions: number[] = []
+
+    while (searchStart < justfloatBuffer.length - 3) {
+      const pos = findSyncBytes(new Uint8Array(justfloatBuffer), searchStart)
+      if (pos === -1) break
+      syncPositions.push(pos)
+      searchStart = pos + 4 // 跳到同步字之后继续搜索
+    }
+
+    // 如果没有找到同步字，直接返回
+    if (syncPositions.length === 0) return
+
+    // 处理帧（需要至少两个同步字才能确定一帧）
+    let processedUpTo = 0
+    for (let i = 0; i < syncPositions.length - 1; i++) {
+      const firstSync = syncPositions[i]
+      const secondSync = syncPositions[i + 1]
+      const payloadStart = firstSync + 4
+      const payloadEnd = secondSync
+
+      if (!isValidPayload(payloadStart, payloadEnd)) continue
+
+      const payload = justfloatBuffer.slice(payloadStart, payloadEnd)
+      const values = parseFloats(payload)
+
+      // 检查通道数一致性
+      if (expectedChannelCount > 0 && values.length !== expectedChannelCount) {
+        continue
       }
 
-      switch (justfloatState) {
-        case JustFloatState.LOOKING_FOR_FIRST_SYNC:
-          if (checkSyncBytes()) {
-            firstSyncIndex = justfloatBuffer.length - 4
-            justfloatState = JustFloatState.LOOKING_FOR_SECOND_SYNC
-          }
-          break
-
-        case JustFloatState.LOOKING_FOR_SECOND_SYNC:
-          if (checkSyncBytes()) {
-            const secondSyncIndex = justfloatBuffer.length - 4
-            const payloadStart = firstSyncIndex + 4
-            const payloadEnd = secondSyncIndex
-
-            // 使用新的验证逻辑，避免在数据中间误判同步字
-            if (isValidPayload(payloadStart, payloadEnd)) {
-              const payload = justfloatBuffer.slice(payloadStart, payloadEnd)
-              const values = parseFloats(payload)
-
-              // 检查通道数是否一致（如果已经知道通道数）
-              if (expectedChannelCount > 0 && values.length !== expectedChannelCount) {
-                // 通道数不一致，可能是误判的同步字，跳过这次处理
-                // 重置状态，重新查找
-                justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
-                firstSyncIndex = -1
-                break  // 使用 break 而不是 return，继续处理后续字节
-              }
-
-              // 只添加有效的数据帧（至少包含一个通道的数据）
-              if (values.length > 0) {
-                // 记录通道数（第一次成功解析时）
-                if (expectedChannelCount === 0) {
-                  expectedChannelCount = values.length
-                }
-                addFrameToBatch(values)
-              }
-            } else {
-              // payload 无效，可能是误判的同步字，继续查找
-              // 不要截断 buffer，继续处理
-              break
-            }
-
-            // 修复：正确处理 buffer 截断，确保 firstSyncIndex 指向正确的同步字位置
-            // 保留第二个同步字，使其成为下一次查找的第一个同步字
-            justfloatBuffer = justfloatBuffer.slice(secondSyncIndex)
-            firstSyncIndex = 0 // 现在第二个同步字已经在 buffer 的开头了
-          }
-          break
+      if (values.length > 0) {
+        if (expectedChannelCount === 0) {
+          expectedChannelCount = values.length
+        }
+        addFrameToBatch(values)
       }
+
+      processedUpTo = secondSync
+    }
+
+    // 保留未处理的数据（从最后一个完整的帧开始）
+    if (processedUpTo > 0) {
+      justfloatBuffer = justfloatBuffer.slice(processedUpTo)
     }
   }
 
