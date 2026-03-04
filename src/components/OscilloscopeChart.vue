@@ -70,8 +70,8 @@ const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionSta
 
   if (startIndex >= endIndex) return null
 
-  // 生成缓存键（包含选区范围和所有通道的系数）
-  const key = `${startIndex}-${endIndex}-${props.channels.map(ch => ch.coefficient).join(',')}`
+  // 生成缓存键（包含选区范围，数据本身已应用系数）
+  const key = `${startIndex}-${endIndex}`
 
   // 检查缓存
   if (key === cachedStatsKey) {
@@ -94,7 +94,7 @@ const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionSta
     let max = -Infinity
 
     for (let i = startIndex; i <= endIndex; i++) {
-      const val = seriesData[i] * channel.coefficient
+      const val = seriesData[i]
       sum += val
       if (val < min) min = val
       if (val > max) max = val
