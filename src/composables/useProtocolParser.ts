@@ -2,12 +2,6 @@ import { ref } from 'vue'
 import { SYNC_BYTES } from '@/types'
 import type { ProtocolType } from '@/types'
 
-// JustFloat 解析状态
-enum JustFloatState {
-  LOOKING_FOR_FIRST_SYNC,
-  LOOKING_FOR_SECOND_SYNC,
-}
-
 export function useProtocolParser() {
   const channelCount = ref(0)
   const frameCount = ref(0)
@@ -15,8 +9,6 @@ export function useProtocolParser() {
 
   // JustFloat 内部状态
   let justfloatBuffer: number[] = []
-  let justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
-  let firstSyncIndex = -1
   let expectedChannelCount = 0 // 记录预期的通道数，用于检测异常
 
   // FireWater 内部状态
@@ -116,16 +108,6 @@ export function useProtocolParser() {
 
   // ==================== JustFloat 协议解析 ====================
 
-  // 检查同步字节（检查 buffer 末尾的 4 个字节）
-  const checkSyncBytes = (): boolean => {
-    if (justfloatBuffer.length < 4) return false
-    const start = justfloatBuffer.length - 4
-    return justfloatBuffer[start] === SYNC_BYTES[0] &&
-           justfloatBuffer[start + 1] === SYNC_BYTES[1] &&
-           justfloatBuffer[start + 2] === SYNC_BYTES[2] &&
-           justfloatBuffer[start + 3] === SYNC_BYTES[3]
-  }
-
   // 检查是否在有效位置（避免在数据中间误判同步字）
   // payload 长度应该是 4 的倍数，且应该合理（至少要有一些数据）
   const isValidPayload = (payloadStart: number, payloadEnd: number): boolean => {
@@ -190,8 +172,6 @@ export function useProtocolParser() {
       const excess = justfloatBuffer.length - 4096
       const alignedExcess = Math.floor(excess / 4) * 4
       justfloatBuffer = justfloatBuffer.slice(alignedExcess)
-      justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
-      firstSyncIndex = -1
     }
 
     // 批量处理：查找所有同步字节位置
@@ -354,8 +334,6 @@ export function useProtocolParser() {
     framesBatch = []
     // JustFloat 状态
     justfloatBuffer = []
-    justfloatState = JustFloatState.LOOKING_FOR_FIRST_SYNC
-    firstSyncIndex = -1
     expectedChannelCount = 0 // 重置通道数记录
     // FireWater 状态
     firewaterBuffer = ''
