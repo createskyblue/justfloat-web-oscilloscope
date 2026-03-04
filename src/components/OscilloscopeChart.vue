@@ -91,9 +91,8 @@ const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionSta
   // 大数据量时使用采样计算统计值，减少 CPU 占用
   const rangeSize = endIndex - startIndex + 1
   const sampleStep = rangeSize > 50000 ? Math.ceil(rangeSize / 10000) : 1
-  const sampledCount = Math.ceil(rangeSize / sampleStep)
 
-  const channels = props.channels.slice(0, props.channelCount).map((channel, idx) => {
+  const channels = props.channels.slice(0, props.channelCount).map((_, idx) => {
     const seriesIdx = idx + 1
     const seriesData = data[seriesIdx] as number[]
     if (!seriesData) return { id: idx, min: 0, max: 0, avg: 0 }
@@ -173,7 +172,6 @@ let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 
 // minimap 更新控制
 let lastMinimapUpdateTime = 0
-const MINIMAP_UPDATE_INTERVAL = 500 // minimap 最小更新间隔 500ms
 
 // 根据数据量和采样率调整刷新间隔（目标：在性能和流畅度之间平衡）
 const adjustedInterval = computed(() => {
@@ -778,7 +776,7 @@ const updateChart = () => {
     }
     // 控制 minimap 更新频率，大数据量时减少更新
     const now = performance.now()
-    if (now - lastMinimapUpdateTime >= MINIMAP_UPDATE_INTERVAL) {
+    if (now - lastMinimapUpdateTime >= adjustedInterval.value) {
       updateMinimapData()
       lastMinimapUpdateTime = now
     }
