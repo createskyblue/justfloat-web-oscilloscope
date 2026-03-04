@@ -14,6 +14,8 @@ const props = defineProps<{
   // 数据接口 - 使用函数形式进行惰性计算
   getChartData: () => (Float64Array | number[])[] | null
   getFullChartData: () => (Float64Array | number[])[] | null
+  // 专用于 minimap 的数据获取（带降采样）
+  getMinimapData: () => (Float64Array | number[])[] | null
 }>()
 
 const emit = defineEmits<{
@@ -52,6 +54,7 @@ const cursorIndex = ref<number | null>(null)
 // 惰性获取数据（使用 computed 自动缓存）
 const chartData = computed(() => props.getChartData())
 const fullData = computed(() => props.getFullChartData())
+const minimapData = computed(() => props.getMinimapData())
 
 // 统计计算缓存（避免重复计算）
 let cachedStatsKey = ''
@@ -85,6 +88,11 @@ const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionSta
   // 频率是时长的倒数（Hz）
   const frequency = 1000 / duration
 
+  // 大数据量时使用采样计算统计值，减少 CPU 占用
+  const rangeSize = endIndex - startIndex + 1
+  const sampleStep = rangeSize > 50000 ? Math.ceil(rangeSize / 10000) : 1
+  const sampledCount = Math.ceil(rangeSize / sampleStep)
+
   const channels = props.channels.slice(0, props.channelCount).map((channel, idx) => {
     const seriesIdx = idx + 1
     const seriesData = data[seriesIdx] as number[]
@@ -93,19 +101,24 @@ const calculateSelectionStats = (startIdx: number, endIdx: number): SelectionSta
     let sum = 0
     let min = Infinity
     let max = -Infinity
+    let count = 0
 
-    for (let i = startIndex; i <= endIndex; i++) {
+    // 使用采样遍历
+    for (let i = startIndex; i <= endIndex; i += sampleStep) {
       const val = seriesData[i]
-      sum += val
-      if (val < min) min = val
-      if (val > max) max = val
+      if (isFinite(val)) {
+        sum += val
+        if (val < min) min = val
+        if (val > max) max = val
+        count++
+      }
     }
 
     return {
       id: idx,
-      min,
-      max,
-      avg: sum / pointCount
+      min: count > 0 ? min : 0,
+      max: count > 0 ? max : 0,
+      avg: count > 0 ? sum / count : 0
     }
   }).filter(ch => ch !== undefined) as SelectionStats['channels']
 
@@ -158,6 +171,10 @@ let isUpdating = false
 let resizeObserver: ResizeObserver | null = null
 let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 
+// minimap 更新控制
+let lastMinimapUpdateTime = 0
+const MINIMAP_UPDATE_INTERVAL = 500 // minimap 最小更新间隔 500ms
+
 // 根据数据量和采样率调整刷新间隔（目标：在性能和流畅度之间平衡）
 const adjustedInterval = computed(() => {
   const points = props.totalPoints
@@ -166,14 +183,20 @@ const adjustedInterval = computed(() => {
   // 基础刷新间隔
   const minInterval = 33 // 约30fps
 
-  // 大数据量时适当降低刷新率以优先保证性能
-  if (rate > 7500 && points > 500000) {
-    return 60 // 降低到约16fps，优先性能
+  // 大数据量时大幅降低刷新率以优先保证性能
+  if (points > 500000) {
+    return 200 // 5fps，超大数据量优先性能
   }
-
-  if (points > 200000) return 50  // 约20fps
-  if (points > 100000) return 50  // 100K数据也降到20fps，优先性能
-  if (points > 50000) return 40   // 约25fps
+  if (points > 200000) {
+    return 150 // 约6.6fps
+  }
+  if (points > 100000) {
+    return 100 // 10fps，大数据量降低刷新率
+  }
+  if (rate > 7500 && points > 50000) {
+    return 80 // 约12fps
+  }
+  if (points > 50000) return 50  // 约20fps
   return minInterval  // 小数据量保持30fps
 })
 
@@ -434,44 +457,59 @@ const initMinimap = (sync = false) => {
       return
     }
 
-  // 获取所有数据的降采样版本用于预览
-  const data = fullData.value
-  if (!data || data[0].length === 0) return
+    // 获取 minimap 专用数据（已降采样，但保持原始索引）
+    const data = minimapData.value
+    if (!data || data[0].length === 0) return
 
-  // 对数据进行降采样以适应小尺寸
-  const maxPoints = width * 2 // 每2个像素一个点
-  const xData = data[0]
-  const step = Math.max(1, Math.ceil(xData.length / maxPoints))
-  const pointCount = Math.ceil(xData.length / step)
+    // 数据已经是降采样的，但可能需要进一步降采样以适应 minimap 尺寸
+    const xData = data[0]
+    const dataLength = xData.length
 
-  // 只包含可见通道的数据（与 createMinimapOptions 保持一致）
-  const downsampledData: (Float64Array | number[])[] = [
-    new Float64Array(pointCount)
-  ]
-  // 记录可见通道的原始索引
-  const visibleChannelIndices: number[] = []
-  for (let ch = 1; ch < data.length; ch++) {
-    const channel = props.channels[ch - 1]
-    if (channel?.visible !== false) {
-      downsampledData.push(new Float64Array(pointCount))
-      visibleChannelIndices.push(ch)
+    // 根据 minimap 宽度决定是否需要进一步降采样
+    const maxPoints = width * 2
+    let finalData = data
+
+    if (dataLength > maxPoints) {
+      // 需要进一步降采样
+      const step = Math.ceil(dataLength / maxPoints)
+      const pointCount = Math.ceil(dataLength / step)
+
+      const downsampledData: (Float64Array | number[])[] = [
+        new Float64Array(pointCount)
+      ]
+      const visibleChannelIndices: number[] = []
+      for (let ch = 1; ch < data.length; ch++) {
+        const channel = props.channels[ch - 1]
+        if (channel?.visible !== false) {
+          downsampledData.push(new Float64Array(pointCount))
+          visibleChannelIndices.push(ch)
+        }
+      }
+
+      let outIdx = 0
+      for (let i = 0; i < dataLength && outIdx < pointCount; i += step) {
+        downsampledData[0][outIdx] = xData[i] as number
+        for (let idx = 0; idx < visibleChannelIndices.length; idx++) {
+          const ch = visibleChannelIndices[idx]
+          const channelData = data[ch] as number[]
+          downsampledData[idx + 1][outIdx] = channelData[i]
+        }
+        outIdx++
+      }
+
+      // 调整数组大小
+      if (outIdx < pointCount) {
+        finalData = [
+          (downsampledData[0] as Float64Array).slice(0, outIdx),
+          ...downsampledData.slice(1).map(d => (d as Float64Array).slice(0, outIdx))
+        ]
+      } else {
+        finalData = downsampledData
+      }
     }
-  }
 
-  // 使用索引赋值代替 push
-  let outIdx = 0
-  for (let i = 0; i < xData.length; i += step) {
-    downsampledData[0][outIdx] = xData[i] as number
-    for (let idx = 0; idx < visibleChannelIndices.length; idx++) {
-      const ch = visibleChannelIndices[idx]
-      const channelData = data[ch] as number[]
-      downsampledData[idx + 1][outIdx] = channelData[i]
-    }
-    outIdx++
-  }
-
-  const options = createMinimapOptions(width, height)
-    minimap.value = new uPlot(options, downsampledData as uPlot.AlignedData, minimapContainer.value)
+    const options = createMinimapOptions(width, height)
+    minimap.value = new uPlot(options, finalData as uPlot.AlignedData, minimapContainer.value)
 
     // 更新视口位置
     updateMinimapViewport()
@@ -738,7 +776,12 @@ const updateChart = () => {
       minimap.value.destroy()
       minimap.value = null
     }
-    updateMinimapData()
+    // 控制 minimap 更新频率，大数据量时减少更新
+    const now = performance.now()
+    if (now - lastMinimapUpdateTime >= MINIMAP_UPDATE_INTERVAL) {
+      updateMinimapData()
+      lastMinimapUpdateTime = now
+    }
     updateMinimapViewport()
   } finally {
     isUpdating = false
@@ -895,28 +938,12 @@ watch(() => props.totalPoints, (newVal, oldVal) => {
   }
 })
 
-// 监听数据源引用变化，重置缩放状态
-watch([() => chartData.value, () => fullData.value], ([newChartData, newFullData]) => {
-  // 如果数据源从 null 变为有数据，或数据长度发生变化，重置缩放
-  if (newChartData && newFullData) {
-    const fullLength = newFullData[0]?.length || 0
-
-    // 如果当前有缩放状态，检查缩放范围是否仍然有效
-    if (isZoomed.value && zoomRange.value) {
-      const { start, end } = zoomRange.value
-      // 如果缩放范围超出新数据范围，重置缩放
-      if (start >= fullLength || end > fullLength) {
-        resetZoom()
-      }
-    }
-  }
-})
-
 // 更新 Minimap 数据
 const updateMinimapData = () => {
   if (!minimapContainer.value || props.totalPoints === 0) return
 
-  const data = fullData.value
+  // 使用专门的 minimap 数据（已降采样）
+  const data = minimapData.value
   if (!data || data[0].length === 0) return
 
   // 如果 minimap 不存在，尝试重新初始化
@@ -929,11 +956,20 @@ const updateMinimapData = () => {
   // 使用容器的完整宽度
   const width = Math.max(100, rect.width || 800)
 
-  // 对数据进行降采样
-  const maxPoints = width * 2
+  // 对数据进行降采样 - 大数据量时使用更激进的降采样
   const xData = data[0]
-  const step = Math.max(1, Math.ceil(xData.length / maxPoints))
-  const pointCount = Math.ceil(xData.length / step)
+  const dataLength = xData.length
+
+  // 根据数据量动态调整降采样率
+  let maxPoints = width * 2 // 基础：每2像素一个点
+  if (dataLength > 500000) {
+    maxPoints = width // 50万+：每像素一个点
+  } else if (dataLength > 200000) {
+    maxPoints = Math.floor(width * 1.5) // 20万+：每1.5像素一个点
+  }
+
+  const step = Math.max(1, Math.ceil(dataLength / maxPoints))
+  const pointCount = Math.ceil(dataLength / step)
 
   // 只包含可见通道的数据（与 createMinimapOptions 保持一致）
   const downsampledData: (Float64Array | number[])[] = [
@@ -951,7 +987,7 @@ const updateMinimapData = () => {
 
   // 使用索引赋值代替 push，性能更好
   let outIdx = 0
-  for (let i = 0; i < xData.length; i += step) {
+  for (let i = 0; i < dataLength && outIdx < pointCount; i += step) {
     downsampledData[0][outIdx] = xData[i] as number
     for (let idx = 0; idx < visibleChannelIndices.length; idx++) {
       const ch = visibleChannelIndices[idx]
@@ -959,6 +995,16 @@ const updateMinimapData = () => {
       downsampledData[idx + 1][outIdx] = channelData[i]
     }
     outIdx++
+  }
+
+  // 如果实际输出少于预期，调整数组大小
+  if (outIdx < pointCount) {
+    const trimmedData = [
+      (downsampledData[0] as Float64Array).slice(0, outIdx),
+      ...downsampledData.slice(1).map(d => (d as Float64Array).slice(0, outIdx))
+    ]
+    minimap.value.setData(trimmedData as uPlot.AlignedData)
+    return
   }
 
   // 更新 Minimap 数据

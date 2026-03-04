@@ -96,8 +96,6 @@ export function useDataBuffer(initialSize: number = 10000) {
   // 缓存图表数据，避免每次渲染都重新创建 TypedArray
   let cachedChartData: (Float64Array | number[])[] | null = null
   let cachedChartDataVersion = -1
-  let cachedFullData: (Float64Array | number[])[] | null = null
-  let cachedFullDataVersion = -1
 
   // 用于计算采样率的变量
   let sampleCount = 0
@@ -134,11 +132,11 @@ export function useDataBuffer(initialSize: number = 10000) {
       sampleCount = 0
     }
 
-    // 计算采样率
+    // 计算采样率（优化：降低更新频率以减少卡顿）
     sampleCount++
 
     const elapsed = now - sampleRateUpdateTime
-    if (elapsed >= 1000) {
+    if (elapsed >= 2000) {  // 从1000ms改为2000ms
       sampleRate.value = Math.round(sampleCount / (elapsed / 1000))
       sampleRateUpdateTime = now
       sampleCount = 0
@@ -171,11 +169,11 @@ export function useDataBuffer(initialSize: number = 10000) {
       sampleCount = 0
     }
 
-    // 计算采样率
+    // 计算采样率（优化：降低更新频率以减少卡顿）
     sampleCount += frames.length
 
     const elapsed = now - sampleRateUpdateTime
-    if (elapsed >= 1000) {
+    if (elapsed >= 2000) {  // 从1000ms改为2000ms
       sampleRate.value = Math.round(sampleCount / (elapsed / 1000))
       sampleRateUpdateTime = now
       sampleCount = 0
@@ -322,16 +320,18 @@ export function useDataBuffer(initialSize: number = 10000) {
       return null
     }
 
-    // 根据数据量动态调整目标点数（降低目标点数以提升性能）
+    // 根据数据量动态调整目标点数（更激进的降采样策略）
     let targetPoints: number
-    if (totalSize > 500000) {
-      targetPoints = 3000  // 从5000降到3000
+    if (totalSize > 1000000) {
+      targetPoints = 2000  // 超大数据量：每500点取1个
+    } else if (totalSize > 500000) {
+      targetPoints = 3000  // 50万点：每167点取1个
     } else if (totalSize > 200000) {
-      targetPoints = 5000  // 从10000降到5000
+      targetPoints = 4000  // 20万点：每50点取1个
     } else if (totalSize > 100000) {
-      targetPoints = 10000  // 从20000降到10000
+      targetPoints = 5000  // 10万点：每20点取1个
     } else if (totalSize > 50000) {
-      targetPoints = 20000  // 从30000降到20000
+      targetPoints = 10000  // 5万点：每5点取1个
     } else {
       targetPoints = totalSize // 不降采样
     }
@@ -414,22 +414,15 @@ export function useDataBuffer(initialSize: number = 10000) {
     return [xData.slice(0, outIdx), ...series.map(s => s.slice(0, outIdx))]
   }
 
-  // 获取全量数据（不降采样，用于缩放功能）
+  // 获取全量数据（用于缩放功能和选区统计，保持原始索引）
   const getFullChartData = (channelCount: number, coefficients: number[] = []) => {
     const totalSize = ringBuffer.size
 
-    // 检查缓存
-    if (cachedFullData && cachedFullDataVersion === dataVersion.value) {
-      return cachedFullData
-    }
-
     if (totalSize === 0) {
-      cachedFullData = null
-      cachedFullDataVersion = dataVersion.value
       return null
     }
 
-    // 返回全量数据，不降采样（保持索引正确性）
+    // 返回全量数据，不降采样（保持索引正确性，用于缩放和选区）
     const outputSize = totalSize
     const xData = new Float64Array(outputSize)
     const series: Float64Array[] = []
@@ -449,10 +442,55 @@ export function useDataBuffer(initialSize: number = 10000) {
       }
     }
 
-    const result = [xData, ...series]
-    cachedFullData = result
-    cachedFullDataVersion = dataVersion.value
-    return result
+    return [xData, ...series]
+  }
+
+  // 获取 Minimap 数据（专门用于预览，带降采样）
+  // 返回的数据 x 值保持原始索引，但数据点减少
+  const getMinimapData = (channelCount: number, coefficients: number[] = []) => {
+    const totalSize = ringBuffer.size
+
+    if (totalSize === 0) {
+      return null
+    }
+
+    // 根据数据量动态调整降采样率
+    let step = 1
+    if (totalSize > 500000) {
+      step = 10  // 50万+数据：每10点取1个
+    } else if (totalSize > 200000) {
+      step = 5   // 20万+数据：每5点取1个
+    } else if (totalSize > 100000) {
+      step = 2   // 10万+数据：每2点取1个
+    }
+
+    const outputSize = Math.ceil(totalSize / step)
+    const xData = new Float64Array(outputSize)
+    const series: Float64Array[] = []
+    for (let i = 0; i < channelCount; i++) {
+      series.push(new Float64Array(outputSize))
+    }
+
+    let outIdx = 0
+    for (let i = 0; i < totalSize && outIdx < outputSize; i += step) {
+      const frame = ringBuffer.get(i)
+      if (!frame) continue
+
+      xData[outIdx] = i  // 保持原始索引
+      for (let ch = 0; ch < channelCount; ch++) {
+        const rawValue = ch < frame.values.length ? frame.values[ch] : 0
+        const coef = coefficients[ch] ?? 1
+        series[ch][outIdx] = rawValue * coef
+      }
+      outIdx++
+    }
+
+    // 如果实际输出少于预期，调整数组大小
+    if (outIdx < outputSize) {
+      return [xData.slice(0, outIdx), ...series.map(s => s.slice(0, outIdx))]
+    }
+
+    return [xData, ...series]
   }
 
   // 清空数据
@@ -461,8 +499,6 @@ export function useDataBuffer(initialSize: number = 10000) {
     cachedStats.clear()
     cachedChartData = null
     cachedChartDataVersion = -1
-    cachedFullData = null
-    cachedFullDataVersion = -1
     data.value = []
     dataVersion.value++
     sampleRate.value = 0
@@ -585,6 +621,7 @@ export function useDataBuffer(initialSize: number = 10000) {
     getChartData,
     getChartDataInRange,
     getFullChartData,
+    getMinimapData,
     getDataSize,
     clear,
     setBufferSize,

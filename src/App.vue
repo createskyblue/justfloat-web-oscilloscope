@@ -150,20 +150,29 @@ watch(() => buffer.totalPoints.value, (totalPoints) => {
   parser.setBufferUsage(usage)
 })
 
-// 保存配置
+// 保存配置（使用防抖避免频繁写入 localStorage）
+let saveConfigTimer: ReturnType<typeof setTimeout> | null = null
 watch([() => baudRate.value, () => bufferSize.value, () => protocol.value, () => connectionType.value, () => wsUrl.value, () => btServiceUUID.value, () => btCharacteristicUUID.value, () => channelConfig.channels.value], () => {
-  const config: AppConfig = {
-    baudRate: baudRate.value,
-    bufferSize: bufferSize.value,
-    protocol: protocol.value,
-    connectionType: connectionType.value,
-    wsUrl: wsUrl.value,
-    btServiceUUID: btServiceUUID.value,
-    btCharacteristicUUID: btCharacteristicUUID.value,
-    channels: channelConfig.channels.value,
-    isDark: isDark.value
+  // 清除之前的定时器
+  if (saveConfigTimer) {
+    clearTimeout(saveConfigTimer)
   }
-  saveConfig(config)
+
+  // 延迟500ms保存，避免频繁写入
+  saveConfigTimer = setTimeout(() => {
+    const config: AppConfig = {
+      baudRate: baudRate.value,
+      bufferSize: bufferSize.value,
+      protocol: protocol.value,
+      connectionType: connectionType.value,
+      wsUrl: wsUrl.value,
+      btServiceUUID: btServiceUUID.value,
+      btCharacteristicUUID: btCharacteristicUUID.value,
+      channels: channelConfig.channels.value,
+      isDark: isDark.value
+    }
+    saveConfig(config)
+  }, 500)
 }, { deep: true })
 
 // 协议变化时更新解析器
@@ -320,6 +329,7 @@ onUnmounted(() => {
           :total-points="buffer.totalPoints.value"
           :get-chart-data="() => buffer.getChartData(parser.channelCount.value, channelConfig.getCoefficients())"
           :get-full-chart-data="() => buffer.getFullChartData(parser.channelCount.value, channelConfig.getCoefficients())"
+          :get-minimap-data="() => buffer.getMinimapData(parser.channelCount.value, channelConfig.getCoefficients())"
           :is-dark="isDark"
           @selection-change="selectionStats = $event"
           @cursor-values="handleCursorValues"
